@@ -380,14 +380,14 @@ function renderQuestion(question) {
         <legend>${question.label}</legend>
         <div class="${gridClass}">
           ${question.options
-        .map(([value, label, helper]) => `
+            .map(([value, label, helper]) => `
               <label class="choice-card">
                 <input type="radio" name="${question.id}" value="${value}" ${question.value === value ? "checked" : ""} />
                 <span>${label}</span>
                 <small>${helper}</small>
               </label>
             `)
-        .join("")}
+            .join("")}
         </div>
       </fieldset>
     `;
@@ -399,14 +399,14 @@ function renderQuestion(question) {
         <legend>${question.label}</legend>
         <div class="choice-grid compact-grid">
           ${question.options
-        .map(([value, label, helper]) => `
+            .map(([value, label, helper]) => `
               <label class="choice-card">
                 <input type="checkbox" name="${question.id}" value="${value}" ${question.value.includes(value) ? "checked" : ""} />
                 <span>${label}</span>
                 <small>${helper}</small>
               </label>
             `)
-        .join("")}
+            .join("")}
         </div>
       </fieldset>
     `;

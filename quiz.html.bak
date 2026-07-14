@@ -12,7 +12,7 @@
   <main class="quiz-shell">
     <header class="quiz-header">
       <a class="brand" href="index.html" aria-label="My Carbon Credit home">
-        <img class="quiz-full-logo" src="assets/Data Leaf.png" alt="My Carbon Credit" />
+        <img class="quiz-full-logo" src="assets/my-carbon-credit-logo.svg" alt="My Carbon Credit" />
       </a>
       <div class="header-actions">
         <div class="wallet-pill" id="walletPill" aria-label="Green points wallet">
@@ -41,32 +41,30 @@
         <div class="mission-board" aria-label="Quiz rewards preview">
           <div class="score-preview earning-preview">
             <div class="wallet-hero-art" aria-hidden="true">
-              <div class="wallet-slideshow">
-                <img src="assets/Brownwallet.png" alt="Brown Wallet" class="wallet-slide slide-1" />
-                <img src="assets/Greenwallet.png" alt="Green Wallet" class="wallet-slide slide-2" />
+              <div class="wallet-graphic">
+                <span class="wallet-slot"></span>
+                <span class="coin coin-one">🌳</span>
+                <span class="coin coin-two">🌳</span>
+                <span class="coin coin-three">🌳</span>
+                <span class="leaf-card"></span>
+              </div>
+              <div class="tree-growth">
+                <img src="assets/Seed.png" alt="Seed" class="tree-stage" />
+                <img src="assets/Sapling.png" alt="Sapling" class="tree-stage" />
+                <img src="assets/Plant.png" alt="Plant" class="tree-stage" />
+                <img src="assets/Small tree.png" alt="Small Tree" class="tree-stage" />
+                <img src="assets/Big tree.png" alt="Big Tree" class="tree-stage" />
               </div>
             </div>
             <div class="earning-copy">
               <small>Total Balance</small>
-              <span class="flicker-val-container">
-                <span class="flicker-val f-brown">5</span>
-                <span class="flicker-val f-green" id="waitingPoints">500</span>
-              </span>
+              <span id="waitingPoints">500</span>
               <strong>Green Points waiting in your wallet</strong>
             </div>
             <div class="wallet-stats" aria-label="Wallet preview stats">
-              <span><strong class="flicker-val-container">
-                <span class="flicker-val f-brown">10</span>
-                <span class="flicker-val f-green">1,250</span>
-              </strong> Lifetime</span>
-              <span><strong class="flicker-val-container">
-                <span class="flicker-val f-brown">5</span>
-                <span class="flicker-val f-green">150</span>
-              </strong> This Month</span>
-              <span><strong class="flicker-val-container">
-                <span class="flicker-val f-brown">#1,054</span>
-                <span class="flicker-val f-green">#23</span>
-              </strong> Rank</span>
+              <span><strong>1,250</strong> Lifetime</span>
+              <span><strong>150</strong> This Month</span>
+              <span><strong>#23</strong> Rank</span>
             </div>
           </div>
           <div class="mission-tiles-row">
