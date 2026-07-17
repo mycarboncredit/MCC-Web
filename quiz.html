@@ -204,10 +204,26 @@
           <label style="font-weight:600; display:flex; flex-direction:column; gap:8px;">
             Your Name
             <input type="text" id="userNameInput" placeholder="e.g. Jane Doe" style="padding:14px; border:1.5px solid var(--line); border-radius:12px; font-size:1rem; outline:none;" required>
+            <span id="nameError" style="color:#d93025; font-size:0.85rem; font-weight:500; display:none;"></span>
           </label>
           <label style="font-weight:600; display:flex; flex-direction:column; gap:8px;">
             Email Address
             <input type="email" id="userEmailInput" placeholder="e.g. jane@example.com" style="padding:14px; border:1.5px solid var(--line); border-radius:12px; font-size:1rem; outline:none;" required>
+            <span id="emailError" style="color:#d93025; font-size:0.85rem; font-weight:500; display:none;"></span>
+          </label>
+          <label style="font-weight:600; display:flex; flex-direction:column; gap:8px;">
+            Age Group
+            <select id="userAgeInput" style="padding:14px; border:1.5px solid var(--line); border-radius:12px; font-size:1rem; outline:none; background-color: white; color: var(--ink);" required>
+              <option value="" disabled selected>Select your age group</option>
+              <option value="Under 18">Under 18</option>
+              <option value="18-24">18–24</option>
+              <option value="25-34">25–34</option>
+              <option value="35-44">35–44</option>
+              <option value="45-54">45–54</option>
+              <option value="55-64">55–64</option>
+              <option value="65+">65+</option>
+            </select>
+            <span id="ageError" style="color:#d93025; font-size:0.85rem; font-weight:500; display:none;"></span>
           </label>
           <button class="nav-button next-button" id="saveUserDetailsButton" type="button" style="width:100%; justify-content:center; margin-top:8px;">Save & Download</button>
         </div>
@@ -239,17 +255,12 @@
     <section class="results-screen" id="resultsScreen" hidden>
       <div class="celebration-modal" id="celebrationModal" hidden>
         <div class="celebration-card">
-          <p class="section-kicker">Quiz Completed</p>
-          <h1>Great work!</h1>
-          <p id="celebrationCopy">Your carbon score is ready.</p>
-          <div class="celebration-score">
-            <span id="celebrationScore">0</span>
-            <small>kg CO2e / month</small>
-          </div>
+          <p class="section-kicker">QUIZ COMPLETED</p>
+          <h1 style="margin-bottom:16px;">Great Work!</h1>
+          <p id="celebrationCopy" style="font-size:1.1rem; line-height:1.6; color:var(--muted); margin-bottom:32px;">You have successfully completed the MyCarbonCredit Sustainability Assessment.<br><br>Your personalized sustainability report is ready.</p>
           <div class="celebration-actions">
-            <button class="nav-button back-button" id="viewResultsButton" type="button">View result</button>
-            <button class="nav-button next-button" id="downloadFromCelebrationButton" type="button">Download
-              score</button>
+            <button class="nav-button back-button" id="viewResultsButton" type="button">View Results</button>
+            <button class="nav-button next-button" id="downloadFromCelebrationButton" type="button">Download Report</button>
           </div>
         </div>
       </div>
