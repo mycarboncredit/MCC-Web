@@ -821,6 +821,82 @@ dialog::backdrop {
   font-style: italic;
 }
 
+.footer-hero {
+  flex: 0 0 auto;
+  min-height: 360px;
+  margin-top: 40px;
+}
+
+.site-footer {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: auto;
+  padding: clamp(44px, 7vw, 76px) clamp(20px, 5vw, 72px);
+}
+
+.footer-container {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(240px, 1.35fr) repeat(3, minmax(150px, 1fr));
+  gap: clamp(24px, 4vw, 48px);
+  margin: 0 auto;
+}
+
+.footer-section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.footer-brand {
+  max-width: 430px;
+}
+
+.footer-brand .full-brand-logo {
+  width: 152px;
+  margin-bottom: 6px;
+}
+
+.footer-section h2,
+.footer-section h3 {
+  margin: 0;
+  color: white;
+}
+
+.footer-section h2 {
+  font-size: clamp(2rem, 3.4vw, 3rem);
+}
+
+.footer-section h3 {
+  font-size: 1.15rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.footer-section p {
+  max-width: 380px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.footer-section a {
+  color: rgba(255, 255, 255, 0.84);
+  font-weight: 400;
+  line-height: 1.35;
+  text-decoration: none;
+  transition: color 160ms ease, transform 160ms ease;
+}
+
+.footer-section a:hover {
+  color: var(--sun);
+  transform: translateX(3px);
+}
+
 @media (max-width: 1050px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -833,6 +909,10 @@ dialog::backdrop {
 
   .journey-panel {
     grid-template-columns: repeat(5, 1fr);
+  }
+
+  .footer-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .step-tab {
@@ -867,6 +947,18 @@ dialog::backdrop {
   }
 
   .landing-feature-band {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-hero {
+    min-height: 0;
+  }
+
+  .site-footer {
+    padding: 42px 18px;
+  }
+
+  .footer-container {
     grid-template-columns: 1fr;
   }
 

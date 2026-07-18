@@ -690,12 +690,19 @@ h1 {
   letter-spacing: 0;
 }
 
-#questionHelp,
-#resultCopy {
+#questionHelp {
   max-width: 680px;
   margin: clamp(6px, 1vh, 12px) 0 clamp(8px, 1.5vh, 18px);
   color: var(--muted);
   font-size: clamp(1rem, min(1.8vw, 2.2vh), 1.25rem);
+  line-height: 1.4;
+}
+
+#resultCopy {
+  max-width: 800px;
+  margin: clamp(4px, 0.8vh, 8px) auto clamp(6px, 1vh, 12px);
+  color: var(--muted);
+  font-size: clamp(0.9rem, min(1.6vw, 1.9vh), 1.15rem);
   line-height: 1.4;
 }
 
@@ -1187,7 +1194,7 @@ input[type="range"] {
   border: 1px solid var(--line);
   border-radius: 28px;
   background: white;
-  padding: clamp(20px, 4vh, 48px);
+  padding: clamp(16px, 3vh, 32px);
   text-align: center;
   box-shadow: var(--shadow);
 }
@@ -1552,18 +1559,18 @@ input[type="range"] {
 }
 
 .result-hero h1 {
-  font-size: clamp(1.8rem, min(4vw, 5vh), 2.8rem);
-  margin: 0 0 clamp(4px, 1vh, 8px);
+  font-size: clamp(1.5rem, min(3.5vw, 4vh), 2.4rem);
+  margin: 0 0 clamp(2px, 0.8vh, 6px);
 }
 
 .score-orbit {
-  width: clamp(140px, 22vh, 190px);
-  height: clamp(140px, 22vh, 190px);
+  width: clamp(120px, 18vh, 160px);
+  height: clamp(120px, 18vh, 160px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin: clamp(10px, 1.5vh, 24px) auto clamp(6px, 1vh, 12px);
+  margin: clamp(6px, 1vh, 16px) auto clamp(4px, 0.8vh, 8px);
   border-radius: 50%;
   background:
     radial-gradient(circle at center, var(--paper) 0 62%, transparent 63%),
@@ -1572,7 +1579,7 @@ input[type="range"] {
 
 .score-orbit span {
   display: block;
-  font-size: clamp(2.2rem, 5vh, 3.2rem);
+  font-size: clamp(2rem, 4.5vh, 2.8rem);
   font-weight: 900;
   line-height: 1;
 }
@@ -1588,27 +1595,27 @@ input[type="range"] {
 .result-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(10px, 1.5vh, 16px);
-  margin-top: clamp(10px, 1.8vh, 24px);
+  gap: clamp(8px, 1.2vh, 14px);
+  margin-top: clamp(6px, 1.2vh, 16px);
 }
 
 .result-grid article {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: white;
-  padding: clamp(10px, 1.5vh, 20px);
+  padding: clamp(8px, 1.2vh, 16px);
   box-shadow: var(--shadow);
 }
 
 .result-grid h2 {
-  margin: 0 0 clamp(6px, 1vh, 14px);
-  font-size: clamp(1.1rem, min(1.8vw, 2vh), 1.35rem);
+  margin: 0 0 clamp(4px, 0.8vh, 10px);
+  font-size: clamp(1rem, min(1.6vw, 1.8vh), 1.25rem);
 }
 
 .breakdown-item {
   display: grid;
-  gap: clamp(4px, 0.8vh, 8px);
-  margin: clamp(8px, 1.2vh, 15px) 0;
+  gap: clamp(2px, 0.5vh, 6px);
+  margin: clamp(4px, 0.8vh, 10px) 0;
 }
 
 .breakdown-top {
@@ -1633,11 +1640,12 @@ input[type="range"] {
 
 ol {
   display: grid;
-  gap: 14px;
+  gap: clamp(6px, 1vh, 12px);
   margin: 0;
   padding-left: 22px;
   color: var(--muted);
-  line-height: 1.45;
+  line-height: 1.35;
+  font-size: clamp(0.85rem, min(1.4vw, 1.8vh), 0.95rem);
 }
 
 li strong {
