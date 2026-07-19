@@ -148,7 +148,8 @@ const sections = [
           { value: "diesel", label: "Diesel", icon: "🛢", helper: "Higher tailpipe factor." },
           { value: "ev", label: "EV", icon: "⚡", helper: "Lower operating emissions." },
           { value: "hybrid", label: "Hybrid", icon: "🔋", helper: "Improved fuel efficiency." },
-          { value: "cng", label: "CNG", icon: "🌱", helper: "Lower fossil fuel estimate." }
+          { value: "cng", label: "CNG", icon: "🌱", helper: "Lower fossil fuel estimate." },
+          { value: "na", label: "Not Applicable", icon: "Ø", helper: "For walking/cycling." }
         ]
       },
       {
@@ -174,7 +175,8 @@ const sections = [
           { value: "train", label: "Train", icon: "🚆", helper: "Lower-carbon long-distance option." },
           { value: "bus", label: "Bus", icon: "🚌", helper: "Shared road trip." },
           { value: "flight", label: "Flight", icon: "✈", helper: "Fast but high impact." },
-          { value: "car", label: "Car", icon: "🚗", helper: "Road trip by car." }
+          { value: "car", label: "Car", icon: "🚗", helper: "Road trip by car." },
+          { value: "none", label: "Rarely Travel", icon: "🏡", helper: "I don't travel long distances." }
         ]
       },
       {
@@ -436,10 +438,10 @@ const questions = sections.flatMap((section) => section.questions.map((question)
 // Sources: CEA v20.0 (2024), India GHG Program, Shakti Foundation, CGIAR/FAO, DEFRA 2024, ICAO
 const factors = {
   transport: { car: 0.171, auto: 0.040, bike: 0.070, metro: 0.035, bus: 0.015, walk: 0, cycle: 0, none: 0 },  // kg CO₂/pax-km
-  fuel: { petrol: 1, diesel: 1.16, ev: 0.20, hybrid: 0.65, cng: 0.75 },                 // multiplier vs petrol
+  fuel: { petrol: 1, diesel: 1.16, ev: 0.20, hybrid: 0.65, cng: 0.75, na: 0 },                 // multiplier vs petrol
   cooking: { lpg: 42.5, induction: 16.4, png: 30.0, mixed: 33.0 },                       // kg CO₂/month/household
   diet: { vegetarian: 21.6, vegan: 15.0, eggetarian: 27.0, nonveg: 51.6 },               // kg CO₂/month/person (CGIAR/FAO India)
-  longTravel: { train: 7, bus: 12, flight: 115, car: 42 }                                 // kg CO₂ per trip one-way (ICAO, India Railways)
+  longTravel: { train: 7, bus: 12, flight: 115, car: 42, none: 0 }                                 // kg CO₂ per trip one-way (ICAO, India Railways)
 };
 
 // ===== CARBON CALCULATION CONSTANTS =====
@@ -467,13 +469,34 @@ const colors = {
 
 let currentIndex = 0;
 let rewardSectionId = null;
-let responseId = generateResponseId();
+const RESPONSE_ID_STORAGE_KEY = "mccCurrentResponseId";
+const QUIZ_STATE_STORAGE_KEY = "mccQuizState";
+let responseId = getStoredResponseId() || generateResponseId();
+persistResponseId(responseId);
 
 function generateResponseId() {
   const now = new Date();
   const pad = (n, len) => String(n).padStart(len, "0");
   const rand = Math.floor(Math.random() * 10000);
   return "MCC-" + now.getFullYear() + pad(now.getMonth() + 1, 2) + pad(now.getDate(), 2) + "-" + pad(now.getHours(), 2) + pad(now.getMinutes(), 2) + pad(now.getSeconds(), 2) + "-" + pad(rand, 4);
+}
+
+function getStoredResponseId() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get("Response_ID") || params.get("response_id") || params.get("responseId");
+  if (fromUrl) return fromUrl.trim();
+  return window.localStorage.getItem(RESPONSE_ID_STORAGE_KEY);
+}
+
+function persistResponseId(id) {
+  if (!id) return;
+  window.localStorage.setItem(RESPONSE_ID_STORAGE_KEY, id);
+}
+
+function resetResponseId() {
+  responseId = generateResponseId();
+  persistResponseId(responseId);
+  window.localStorage.removeItem(QUIZ_STATE_STORAGE_KEY);
 }
 
 const sectionColumnMap = {
@@ -487,6 +510,148 @@ const sectionColumnMap = {
   workplace: { companyTracking: "Employee_Sustainability", workplaceParticipation: "Workplace_Participation" },
   reflection: { biggestChallenge: "Biggest_Challenge", featureIdea: "Feature_Suggestions", sustainableLiving: "Sustainable_Living_Definition" }
 };
+
+const questionColumnMap = Object.values(sectionColumnMap).reduce((acc, sectionMap) => {
+  for (const [questionKey, columnName] of Object.entries(sectionMap)) {
+    acc[questionKey] = columnName;
+  }
+  return acc;
+}, {});
+
+function splitSavedList(value) {
+  if (Array.isArray(value)) return value;
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function setQuestionValueFromSheet(question, rawValue) {
+  if (rawValue === undefined || rawValue === null || rawValue === "") return;
+
+  if (question.type === "multi") {
+    const savedValues = splitSavedList(rawValue);
+    const optionValues = new Set(question.options.map((option) => option.value));
+    const matched = savedValues.filter((value) => optionValues.has(value));
+    const unmatched = savedValues.filter((value) => !optionValues.has(value));
+    question.value = matched;
+    if (unmatched.length && optionValues.has("others")) {
+      question.value = ["others"];
+      question.customValue = unmatched.join(", ");
+    }
+    return;
+  }
+
+  if (question.type === "days") {
+    const days = question.options || [];
+    if (/^\d+$/.test(String(rawValue))) {
+      question.value = days.slice(0, Number(rawValue));
+    } else {
+      question.value = splitSavedList(rawValue).filter((value) => days.includes(value));
+    }
+    return;
+  }
+
+  if (question.type === "range" || question.type === "rating") {
+    question.value = Number(rawValue);
+    return;
+  }
+
+  if (question.type === "select") {
+    if (question.options.includes(rawValue)) {
+      question.value = rawValue;
+      question.customValue = "";
+    } else {
+      question.value = "Others";
+      question.customValue = String(rawValue);
+    }
+    return;
+  }
+
+  if (question.type === "choice") {
+    const optionValues = new Set(question.options.map((option) => option.value));
+    if (optionValues.has(rawValue)) {
+      question.value = rawValue;
+      question.customValue = "";
+    } else if (optionValues.has("others")) {
+      question.value = "others";
+      question.customValue = String(rawValue);
+    }
+    return;
+  }
+
+  question.value = String(rawValue);
+}
+
+function applySavedQuizData(savedData) {
+  const quizData = savedData?.Quiz_Responses || {};
+  const respondent = savedData?.Respondent_Master || {};
+  if (!quizData.Location && respondent.City) {
+    quizData.Location = respondent.State ? `${respondent.City}, ${respondent.State}` : respondent.City;
+  }
+  questions.forEach((question) => {
+    const columnName = questionColumnMap[question.key];
+    if (columnName) setQuestionValueFromSheet(question, quizData[columnName]);
+  });
+
+  if (respondent.Name || respondent.Email || respondent.Age_Group) {
+    window.currentUser = {
+      name: respondent.Name || "",
+      email: respondent.Email || "",
+      ageGroup: respondent.Age_Group || ""
+    };
+    isLoggedIn = !!(window.currentUser.name && window.currentUser.email);
+    document.querySelector("#loginButton").textContent = window.currentUser.name || "Welcome User";
+    document.querySelector("#userNameInput").value = window.currentUser.name;
+    document.querySelector("#userEmailInput").value = window.currentUser.email;
+    document.querySelector("#userAgeInput").value = window.currentUser.ageGroup;
+  }
+
+  if (respondent.Green_Points !== undefined && respondent.Green_Points !== null && respondent.Green_Points !== "") {
+    walletPoints = Number(respondent.Green_Points) || 0;
+    updateWallet(false);
+  }
+
+  awardedSections.clear();
+  sections.forEach((section) => {
+    if (section.questions.some(hasSavedAnswer)) awardedSections.add(section.id);
+  });
+}
+
+function hasSavedAnswer(question) {
+  if (question.type === "multi" || question.type === "days") return Array.isArray(question.value) && question.value.length > 0;
+  if (question.type === "rating") return Number(question.value) > 0;
+  return question.value !== "" && question.value !== undefined && question.value !== null;
+}
+
+function findFirstUnansweredIndex() {
+  const index = questions.findIndex((question) => isQuestionVisible(question) && !hasSavedAnswer(question));
+  return index === -1 ? questions.findIndex(isQuestionVisible) : index;
+}
+
+async function hydrateQuizFromCurrentResponse() {
+  if (typeof fetchQuizResponse !== "function" || !responseId) return;
+
+  try {
+    const savedData = await fetchQuizResponse(responseId);
+    if (!savedData || savedData.status !== "success") return;
+
+    applySavedQuizData(savedData);
+    if (!questions[currentIndex] || !isQuestionVisible(questions[currentIndex])) {
+      currentIndex = Math.max(findFirstUnansweredIndex(), 0);
+    }
+    const completed = String(savedData.Respondent_Master?.Quiz_Completed || "").toLowerCase() === "true";
+    showOnly(completed ? "results" : "quiz");
+
+    if (!resultsScreen.hidden) {
+      await showResults();
+    } else {
+      renderQuestion();
+    }
+  } catch (error) {
+    console.warn("Saved quiz response could not be loaded.", error);
+  }
+}
 
 function buildSectionPayload(sectionId) {
   const mapping = sectionColumnMap[sectionId];
@@ -535,6 +700,70 @@ let screenBeforeLogin = "landing";
 let actionAfterLogin = null;
 let walletPoints = 0;
 const awardedSections = new Set();
+let quizStartTime = null;
+
+function questionSnapshot() {
+  return questions.map((question) => ({
+    key: question.key,
+    value: question.value,
+    customValue: question.customValue || ""
+  }));
+}
+
+function saveQuizState() {
+  const state = {
+    responseId,
+    currentIndex,
+    screen: typeof activeScreenName === "function" ? activeScreenName() : "landing",
+    walletPoints,
+    totalAwarenessScore: typeof totalAwarenessScore === "number" ? totalAwarenessScore : 0,
+    awardedSections: Array.from(awardedSections),
+    currentUser: window.currentUser || null,
+    questions: questionSnapshot()
+  };
+  window.localStorage.setItem(QUIZ_STATE_STORAGE_KEY, JSON.stringify(state));
+  persistResponseId(responseId);
+}
+
+function restoreQuizStateFromBrowser() {
+  try {
+    const raw = window.localStorage.getItem(QUIZ_STATE_STORAGE_KEY);
+    if (!raw) return null;
+
+    const state = JSON.parse(raw);
+    if (!state || state.responseId !== responseId) return null;
+
+    const savedByKey = new Map((state.questions || []).map((question) => [question.key, question]));
+    questions.forEach((question) => {
+      const saved = savedByKey.get(question.key);
+      if (!saved) return;
+      question.value = Array.isArray(saved.value) ? [...saved.value] : saved.value;
+      question.customValue = saved.customValue || "";
+    });
+
+    currentIndex = Number.isInteger(state.currentIndex) && questions[state.currentIndex]
+      ? state.currentIndex
+      : 0;
+    walletPoints = Number(state.walletPoints) || 0;
+    totalAwarenessScore = Number(state.totalAwarenessScore) || 0;
+    awardedSections.clear();
+    (state.awardedSections || []).forEach((sectionId) => awardedSections.add(sectionId));
+
+    if (state.currentUser) {
+      window.currentUser = state.currentUser;
+      isLoggedIn = !!(window.currentUser.name && window.currentUser.email);
+      document.querySelector("#loginButton").textContent = window.currentUser.name || "Welcome User";
+      document.querySelector("#userNameInput").value = window.currentUser.name || "";
+      document.querySelector("#userEmailInput").value = window.currentUser.email || "";
+      document.querySelector("#userAgeInput").value = window.currentUser.ageGroup || "";
+    }
+
+    return state;
+  } catch (error) {
+    console.warn("Saved browser quiz state could not be restored.", error);
+    return null;
+  }
+}
 
 function currentQuestion() {
   return questions[currentIndex];
@@ -608,6 +837,7 @@ function renderQuestion() {
   if (question.type === "rating") renderRating(question);
   if (question.type === "select") renderSelect(question);
   if (question.type === "text") renderText(question);
+  saveQuizState();
 }
 
 function hasAnswer(question) {
@@ -649,6 +879,7 @@ function renderChoice(question) {
     input.addEventListener("input", (e) => {
       question.customValue = e.target.value;
       nextButton.disabled = !hasAnswer(question);
+      saveQuizState();
     });
     if (!question.customValue) input.focus();
   }
@@ -690,6 +921,7 @@ function renderMulti(question) {
     input.addEventListener("input", (e) => {
       question.customValue = e.target.value;
       nextButton.disabled = !hasAnswer(question);
+      saveQuizState();
     });
     // Focus the input if they just selected others
     if (!question.customValue) input.focus();
@@ -704,6 +936,13 @@ function renderMulti(question) {
         selected.delete(val);
       } else {
         if (val === "none" || val === "others") {
+          if (val === "none" && question.key === "travelDays") {
+            const distanceQ = questions.find(q => q.key === "distance");
+            if (distanceQ && distanceQ.value !== "" && Number(distanceQ.value) !== 0) {
+              alert("You cannot select 'None' if your daily commute distance is not 0 km.");
+              return;
+            }
+          }
           selected.clear();
           selected.add(val);
         } else {
@@ -762,6 +1001,7 @@ function renderRange(question) {
     readout.style.color = "";
     readout.style.fontWeight = "";
     nextButton.disabled = false;
+    saveQuizState();
   });
 }
 
@@ -814,11 +1054,13 @@ function renderSelect(question) {
       question.value = "Others";
       question.customValue = "";
       nextButton.disabled = true;
+      saveQuizState();
     } else {
       otherWrap.style.display = "none";
       question.value = val;
       question.customValue = "";
       nextButton.disabled = false;
+      saveQuizState();
     }
   });
 
@@ -826,6 +1068,7 @@ function renderSelect(question) {
     otherInput.addEventListener("input", (event) => {
       question.customValue = event.target.value.trim();
       nextButton.disabled = question.customValue === "";
+      saveQuizState();
     });
     // Pre-fill if returning to this question
     if (isOthers && question.customValue) {
@@ -847,6 +1090,7 @@ function renderText(question) {
   `;
   answerArea.querySelector("textarea").addEventListener("input", (event) => {
     question.value = event.target.value;
+    saveQuizState();
   });
   nextButton.disabled = false;
 }
@@ -911,8 +1155,8 @@ const greenPointConfig = {
   },
   weights: {
     transport: { walk: 1.0, cycle: 0.9, metro: 0.7, bus: 0.5, auto: 0.4, bike: 0.3, car: 0.1, none: 1.0 },
-    fuel: { ev: 1.0, cng: 0.8, hybrid: 0.6, petrol: 0.3, diesel: 0.1 },
-    longTravel: { train: 1.0, bus: 0.7, car: 0.4, flight: 0.1 },
+    fuel: { ev: 1.0, cng: 0.8, hybrid: 0.6, petrol: 0.3, diesel: 0.1, na: 1.0 },
+    longTravel: { train: 1.0, bus: 0.7, car: 0.4, flight: 0.1, none: 1.0 },
     cooking: { induction: 1.0, png: 0.8, mixed: 0.5, lpg: 0.3 },
     diet: { vegan: 1.0, vegetarian: 0.8, eggetarian: 0.6, nonveg: 0.2 },
     reusables: { bottle: 0.25, bag: 0.25, lunchbox: 0.25, cup: 0.25 },
@@ -1263,6 +1507,7 @@ function showReward(sectionId) {
   document.querySelector("#rewardBadgeIcon").textContent = badge.icon;
   
   continueButton.textContent = findNextVisibleIndex(currentIndex) === -1 ? "See my score →" : "Continue →";
+  saveQuizState();
 }
 
 function continueFromReward() {
@@ -1378,7 +1623,7 @@ Respondent_Master: {
 
     Browser: navigator.userAgent,
 
-    Completion_Time_sec: 0,
+    Completion_Time_sec: quizStartTime ? Math.round((Date.now() - quizStartTime) / 1000) : 0,
 
     Quiz_Completed: true,
 
@@ -1560,6 +1805,7 @@ async function showResults() {
     </div>
   `).join("");
   document.querySelector("#recommendations").innerHTML = buildRecommendations(result).map((tip) => `<li>${tip}</li>`).join("");
+  saveQuizState();
   await saveQuizResponse(buildPayload());
 }
 
@@ -1579,6 +1825,7 @@ function showOnly(screenName) {
   loginScreen.hidden = screenName !== "login";
   feedbackScreen.hidden = screenName !== "feedback";
   resultsScreen.hidden = screenName !== "results";
+  saveQuizState();
 }
 
 function showLogin() {
@@ -1659,6 +1906,7 @@ function saveUserDetails() {
   
   isLoggedIn = true;
   document.querySelector("#loginButton").textContent = window.currentUser.name;
+  saveQuizState();
   
   // Update result copy if it's currently showing
   const resultCopy = document.querySelector("#resultCopy");
@@ -1870,12 +2118,16 @@ function downloadScore() {
 
 function restart() {
   currentIndex = 0;
-  responseId = generateResponseId();
+  resetResponseId();
   questions.forEach((question) => {
-    if (question.type === "choice" || question.type === "text") question.value = "";
-    if (question.type === "multi") question.value = [];
+    if (question.type === "choice" || question.type === "select" || question.type === "text") question.value = "";
+    if (question.type === "multi" || question.type === "days") question.value = [];
+    if (question.type === "range") question.value = "";
+    if (question.type === "rating") question.value = 0;
+    question.customValue = "";
   });
   walletPoints = 0;
+  totalAwarenessScore = 0;
   awardedSections.clear();
   updateWallet(false);
   quizStage.hidden = false;
@@ -1889,7 +2141,9 @@ function restart() {
 }
 
 function startQuiz() {
-  responseId = generateResponseId();
+  if (!responseId) resetResponseId();
+  persistResponseId(responseId);
+  quizStartTime = Date.now();
   landingScreen.hidden = true;
   quizStage.hidden = false;
   rewardScreen.hidden = true;
@@ -1986,5 +2240,13 @@ document.querySelector("#userEmailInput").addEventListener("blur", (e) => {
 });
 
 
+const restoredState = restoreQuizStateFromBrowser();
+if (!questions[currentIndex] || !isQuestionVisible(questions[currentIndex])) {
+  currentIndex = Math.max(findFirstUnansweredIndex(), 0);
+}
 updateWallet(false);
+if (restoredState?.screen && restoredState.screen !== "landing") {
+  showOnly(restoredState.screen);
+}
 renderQuestion();
+hydrateQuizFromCurrentResponse();

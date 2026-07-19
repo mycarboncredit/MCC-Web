@@ -86,7 +86,7 @@ function handleFinalSave(ss, logs, respondent, quiz, responseId, payload) {
   var r = payload.Respondent_Master;
   var q = payload.Quiz_Responses;
 
-  /* ── Respondent_Master: update existing row or create new ── */
+  /* ── Respondent_Master: update existing row or create new 
   var respondentData = [
     responseId,
     new Date(),
@@ -109,7 +109,43 @@ function handleFinalSave(ss, logs, respondent, quiz, responseId, payload) {
     r.Completion_Time_sec,
     r.Quiz_Completed,
     r.Source
+  ];── */
+
+
+/* ── Respondent_Master: update existing row or create new ── */
+  var respondentData = [
+    responseId,
+    new Date(),
+    r.Name,
+    r.Email,
+    r.City,
+    r.State,
+    r.Occupation,
+    r.Age_Group,
+    r.Carbon_Score,
+    r.Monthly_CO2_kg,
+    r.Annual_CO2_t,
+    r.Green_Points,
+    
+    // --- 6 NEW COLUMNS ADDED HERE ---
+    r.Awareness_Score,
+    r.Awareness_Breakdown,
+    r.Green_Points_Breakdown,
+    r.Consistency_Score,
+    r.Sustainability_Stage,
+    r.Is_Final,
+    // --------------------------------
+    r.Badge,
+    r.Quiz_Version,
+    r.Certificate_Generated,
+    r.Consent_Given,
+    r.Device_Type,
+    r.Browser,
+    r.Completion_Time_sec,
+    r.Quiz_Completed,
+    r.Source
   ];
+
 
   var respRow = findRowByResponseId(respondent, responseId);
   if (respRow === -1) {
@@ -235,6 +271,11 @@ function doPost(e) {
       handleSectionSave(ss, logs, respondent, quiz, responseId, payload);
     }
 
+   // --- ADD THIS LINE ---
+    updateDashboard(ss);
+    // ---------------------
+
+    
     return ContentService
       .createTextOutput(
         JSON.stringify({ status: "success", responseId: responseId })
@@ -253,3 +294,581 @@ function doPost(e) {
 
   }
 }
+
+
+/* ════════════════════════════════════════════════════
+   DASHBOARD CALCULATOR
+   ════════════════════════════════════════════════════ */
+function updateDashboard(ss) {
+  var dashboard = ss.getSheetByName("Dashboard_Data");
+  var respondent = ss.getSheetByName("Respondent_Master");
+  var quiz = ss.getSheetByName("Quiz_Responses");
+  
+  if (!dashboard || !respondent || !quiz) return;
+
+  var respData = respondent.getDataRange().getValues();
+  var quizData = quiz.getDataRange().getValues();
+  
+  if (respData.length <= 1) return; // Exit if only headers exist
+
+  // Find column indexes dynamically
+  var respHeaders = respData[0];
+  var colScore = respHeaders.indexOf("Carbon_Score");
+  var colMonthly = respHeaders.indexOf("Monthly_CO2_kg");
+  var colAnnual = respHeaders.indexOf("Annual_CO2_t");
+  var colPoints = respHeaders.indexOf("Green_Points");
+  var colIsFinal = respHeaders.indexOf("Is_Final");
+  var colCity = respHeaders.indexOf("City");
+
+  var quizHeaders = quizData[0];
+  var colTransport = quizHeaders.indexOf("Transport");
+  var colOffset = quizHeaders.indexOf("Offset_Interest");
+
+  var totalRespondents = respData.length - 1; // Subtract header row
+  var completedQuizzes = 0;
+  
+  var sumScore = 0, sumMonthly = 0, sumAnnual = 0, sumPoints = 0;
+  var transportCounts = {};
+  var cityCounts = {};
+  var offsetYesCount = 0;
+  var offsetTotalCount = 0;
+  
+  // Tally Respondent Data
+  for (var i = 1; i < respData.length; i++) {
+    var row = respData[i];
+    // Check if the user completed the whole quiz
+    var isFinal = row[colIsFinal] === true || String(row[colIsFinal]).toLowerCase() === "true";
+    
+    if (isFinal) {
+      completedQuizzes++;
+      sumScore += Number(row[colScore]) || 0;
+      sumMonthly += Number(row[colMonthly]) || 0;
+      sumAnnual += Number(row[colAnnual]) || 0;
+      sumPoints += Number(row[colPoints]) || 0;
+    }
+    
+    var city = row[colCity];
+    if (city) cityCounts[city] = (cityCounts[city] || 0) + 1;
+  }
+  
+  // Tally Quiz Data
+  for (var i = 1; i < quizData.length; i++) {
+    var row = quizData[i];
+    var transport = row[colTransport];
+    if (transport) transportCounts[transport] = (transportCounts[transport] || 0) + 1;
+    
+    var offset = row[colOffset];
+    if (offset) {
+      offsetTotalCount++;
+      if (String(offset).toLowerCase() === "yes") offsetYesCount++;
+    }
+  }
+  
+  // Calculate Averages (only using completed quizzes to prevent skewed data)
+  var avgScore = completedQuizzes > 0 ? Math.round(sumScore / completedQuizzes) : 0;
+  var avgMonthly = completedQuizzes > 0 ? (sumMonthly / completedQuizzes).toFixed(1) : 0;
+  var avgAnnual = completedQuizzes > 0 ? (sumAnnual / completedQuizzes).toFixed(2) : 0;
+  var avgPoints = completedQuizzes > 0 ? Math.round(sumPoints / completedQuizzes) : 0;
+  
+  var topTransport = getTopKey(transportCounts) || "N/A";
+  var topCity = getTopKey(cityCounts) || "N/A";
+  var offsetInterestPct = offsetTotalCount > 0 ? Math.round((offsetYesCount / offsetTotalCount) * 100) : 0;
+  var completionRate = totalRespondents > 0 ? Math.round((completedQuizzes / totalRespondents) * 100) : 0;
+
+  // Format array to paste exactly into Dashboard_Data (Rows 2 to 11)
+  var dashboardUpdates = [
+    ["Total_Respondents", totalRespondents, ""],
+    ["Completed_Quizzes", completedQuizzes, ""],
+    ["Average_Carbon_Score", avgScore, ""],
+    ["Average_Monthly_CO2", avgMonthly, "kg"],
+    ["Average_Annual_CO2", avgAnnual, "t"],
+    ["Average_Green_Points", avgPoints, ""],
+    ["Top_Transport_Mode", topTransport, ""],
+    ["Top_City", topCity, ""],
+    ["Offset_Interest_Yes_%", offsetInterestPct, "%"],
+    ["Completion_Rate", completionRate, "%"]
+  ];
+
+  // Set values starting at Row 2, Column 1
+  dashboard.getRange(2, 1, dashboardUpdates.length, 3).setValues(dashboardUpdates);
+}
+
+function getTopKey(obj) {
+  var max = 0;
+  var top = null;
+  for (var k in obj) {
+    if (obj[k] > max) { max = obj[k]; top = k; }
+  }
+  return top;
+}
+
+
+
+/*---------------------
+
+ * Google Apps Script — MCC Quiz Response Handler (Upsert)
+ *
+ * Supports two types of requests:
+ *   1. Section saves  (Is_Final = false)  → partial data after each section
+ *   2. Final save     (Is_Final = true)   → complete payload at quiz end
+ *
+ * All requests for the same quiz session share the same Response_ID
+ * generated by the frontend, so every sheet gets exactly ONE row per user.
+ 
+----------------------
+/* old working code ends----------------------------
+ ── Quiz_Responses column positions (1-indexed) ──
+const QUIZ_COL = {
+  "Lifestyle": 2, "Location": 3, "Household": 4, "Pets": 5,
+  "Transport": 6, "Commute_Distance_km": 7, "Travel_Days": 8, "Fuel": 9,
+  "Metro_Access": 10, "Long_Distance_Travel": 11, "Flights_Per_Year": 12,
+  "AC_Hours": 13, "Appliances": 14, "Device_Usage": 15, "Cooking_Source": 16, "Home_Tech": 17,
+  "Diet": 18, "NonVeg_Meals": 19, "Dairy": 20, "Food_Delivery": 21, "Reusable_Items": 22,
+  "Device_Count": 23, "Smart_Devices": 24, "After_Work_Usage": 25,
+  "Sustainability_Importance": 26, "Challenges": 27, "Participation": 28, "Offset_Interest": 29,
+  "Reward_Motivation": 30, "Engagement_Style": 31, "Platform_Usage": 32,
+  "Employee_Sustainability": 33, "Workplace_Participation": 34,
+  "Biggest_Challenge": 35, "Feature_Suggestions": 36, "Sustainable_Living_Definition": 37
+};
+
+ ── Find the row number for a Response_ID (always column 1) ── 
+function findRowByResponseId(sheet, responseId) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return -1;
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (ids[i][0] === responseId) return i + 2;
+  }
+  return -1;
+}
+
+ ════════════════════════════════════════════════════
+   SECTION SAVE — partial data after each section
+   ════════════════════════════════════════════════════ 
+function handleSectionSave(ss, dashboard, respondent, quiz, responseId, payload) {
+  var data = payload.data || {};
+  var sectionId = payload.Section_ID || "";
+  var timestamp = payload.Timestamp || new Date().toISOString();
+  var deviceType = payload.Device_Type || "";
+
+   ── Quiz_Responses ── 
+  var quizRow = findRowByResponseId(quiz, responseId);
+
+  if (quizRow === -1) {
+    // Create new row (37 columns)
+    var newQuizRow = new Array(37).fill("");
+    newQuizRow[0] = responseId;
+    for (var key in data) {
+      if (QUIZ_COL[key]) newQuizRow[QUIZ_COL[key] - 1] = data[key];
+    }
+    quiz.appendRow(newQuizRow);
+  } else {
+    // Update only this section's columns
+    for (var key in data) {
+      if (QUIZ_COL[key]) quiz.getRange(quizRow, QUIZ_COL[key]).setValue(data[key]);
+    }
+  }
+
+   ── Respondent_Master (partial — just ID, timestamp, device, city/state) ── 
+  var respRow = findRowByResponseId(respondent, responseId);
+
+  if (respRow === -1) {
+    // Create partial row (21 columns)
+    var newRespRow = new Array(21).fill("");
+    newRespRow[0]  = responseId;        // Col 1:  Response_ID
+    newRespRow[1]  = timestamp;         // Col 2:  Timestamp
+    newRespRow[16] = deviceType;        // Col 17: Device_Type
+    if (data["City"])  newRespRow[4] = data["City"];   // Col 5
+    if (data["State"]) newRespRow[5] = data["State"];  // Col 6
+    respondent.appendRow(newRespRow);
+  } else {
+    // Update city/state if this is the profile section
+    if (data["City"])  respondent.getRange(respRow, 5).setValue(data["City"]);
+    if (data["State"]) respondent.getRange(respRow, 6).setValue(data["State"]);
+  }
+
+  dashboard.appendRow([new Date(), "SECTION SAVE", sectionId + " saved for " + responseId]);
+}
+
+ ════════════════════════════════════════════════════
+   FINAL SAVE — complete payload at quiz end
+   ════════════════════════════════════════════════════ 
+function handleFinalSave(ss, dashboard, respondent, quiz, responseId, payload) {
+  var r = payload.Respondent_Master;
+  var q = payload.Quiz_Responses;
+
+  ── Respondent_Master: update existing row or create new ── 
+  var respondentData = [
+    responseId,
+    new Date(),
+    r.Name,
+    r.Email,
+    r.City,
+    r.State,
+    r.Occupation,
+    r.Age_Group,
+    r.Carbon_Score,
+    r.Monthly_CO2_kg,
+    r.Annual_CO2_t,
+    r.Green_Points,
+    r.Badge,
+    r.Quiz_Version,
+    r.Certificate_Generated,
+    r.Consent_Given,
+    r.Device_Type,
+    r.Browser,
+    r.Completion_Time_sec,
+    r.Quiz_Completed,
+    r.Source
+  ];
+
+  var respRow = findRowByResponseId(respondent, responseId);
+  if (respRow === -1) {
+    respondent.appendRow(respondentData);
+  } else {
+    respondent.getRange(respRow, 1, 1, respondentData.length).setValues([respondentData]);
+  }
+
+  dashboard.appendRow([new Date(), "STEP 3", "Respondent Saved"]);
+
+  /* ── Quiz_Responses: update existing row or create new ── 
+  var quizData = [
+    responseId,
+    q.Lifestyle,
+    q.Location,
+    q.Household,
+    q.Pets,
+    q.Transport,
+    q.Commute_Distance_km,
+    q.Travel_Days,
+    q.Fuel,
+    q.Metro_Access,
+    q.Long_Distance_Travel,
+    q.Flights_Per_Year,
+    q.AC_Hours,
+    q.Appliances,
+    q.Device_Usage,
+    q.Cooking_Source,
+    q.Home_Tech,
+    q.Diet,
+    q.NonVeg_Meals,
+    q.Dairy,
+    q.Food_Delivery,
+    q.Reusable_Items,
+    q.Device_Count,
+    q.Smart_Devices,
+    q.After_Work_Usage,
+    q.Sustainability_Importance,
+    q.Challenges,
+    q.Participation,
+    q.Offset_Interest,
+    q.Reward_Motivation,
+    q.Engagement_Style,
+    q.Platform_Usage,
+    q.Employee_Sustainability,
+    q.Workplace_Participation,
+    q.Biggest_Challenge,
+    q.Feature_Suggestions,
+    q.Sustainable_Living_Definition
+  ];
+
+  var quizRow = findRowByResponseId(quiz, responseId);
+  if (quizRow === -1) {
+    quiz.appendRow(quizData);
+  } else {
+    quiz.getRange(quizRow, 1, 1, quizData.length).setValues([quizData]);
+  }
+
+  dashboard.appendRow([new Date(), "STEP 4", "Quiz Saved"]);
+
+  /* ── Carbon_Breakdown ── 
+  var carbon = ss.getSheetByName("Carbon_Breakdown");
+  var c = payload.Carbon_Breakdown;
+
+  carbon.appendRow([
+    responseId,
+    c.Mobility_CO2_kg,
+    c.Home_Energy_CO2_kg,
+    c.Food_Lifestyle_CO2_kg,
+    c.Digital_Lifestyle_CO2_kg,
+    c.Travel_CO2_kg,
+    c.Total_Monthly_CO2_kg,
+    c.Annual_CO2_t
+  ]);
+
+  dashboard.appendRow([new Date(), "STEP 5", "Carbon Saved"]);
+
+  /* ── Recommendations ── 
+  var recommendation = ss.getSheetByName("Recommendations");
+  var rec = payload.Recommendations;
+
+  recommendation.appendRow([
+    responseId,
+    rec.Recommendation_1,
+    rec.Recommendation_2,
+    rec.Recommendation_3,
+    rec.Priority,
+    rec.Potential_CO2_Reduction,
+    rec.Status
+  ]);
+
+  dashboard.appendRow([new Date(), "STEP 6", "Recommendations Saved"]);
+}
+
+/* ════════════════════════════════════════════════════
+   MAIN ENTRY POINT
+   ════════════════════════════════════════════════════ 
+function doPost(e) {
+
+  var ss = SpreadsheetApp.openById("1RiREbKcfNxnehPmTtZX1n-0w7wCC7uFizgtDdVcTDQE");
+
+  var dashboard   = ss.getSheetByName("Dashboard_Data");
+  var respondent  = ss.getSheetByName("Respondent_Master");
+  var quiz        = ss.getSheetByName("Quiz_Responses");
+
+  try {
+
+    dashboard.appendRow([new Date(), "STEP 1", "Reached"]);
+
+    var payload = JSON.parse(e.parameter.payload);
+
+    dashboard.appendRow([new Date(), "STEP 2", "Payload Parsed"]);
+
+    // Response_ID comes from frontend (top-level for section saves,
+    // inside Respondent_Master for final save)
+    var responseId = payload.Response_ID
+      || (payload.Respondent_Master && payload.Respondent_Master.Response_ID);
+
+    // Detect if this is a section save or the final complete save
+    var isFinal = payload.Is_Final === true
+      || (payload.Respondent_Master && payload.Respondent_Master.Is_Final === true);
+
+    if (isFinal) {
+      handleFinalSave(ss, dashboard, respondent, quiz, responseId, payload);
+    } else {
+      handleSectionSave(ss, dashboard, respondent, quiz, responseId, payload);
+    }
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify({ status: "success", responseId: responseId })
+      )
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+
+    dashboard.appendRow([new Date(), "ERROR", err.toString()]);
+
+    return ContentService
+      .createTextOutput(
+        JSON.stringify({ status: "error", message: err.toString() })
+      )
+      .setMimeType(ContentService.MimeType.JSON);
+
+  }
+}
+
+
+ old working code ends----------------------------*/
+
+
+/* old working code starts  -----------------
+function doPost(e) {
+
+  const ss = SpreadsheetApp.openById("1RiREbKcfNxnehPmTtZX1n-0w7wCC7uFizgtDdVcTDQE");
+
+  const dashboard = ss.getSheetByName("Dashboard_Data");
+  const respondent = ss.getSheetByName("Respondent_Master");
+  const quiz = ss.getSheetByName("Quiz_Responses");
+
+  try {
+
+    dashboard.appendRow([new Date(), "STEP 1", "Reached"]);
+
+    const payload = JSON.parse(e.parameter.payload);
+
+    dashboard.appendRow([new Date(), "STEP 2", "Payload Parsed"]);
+
+    //----------------------------------------------------
+    // Generate Response ID
+    //----------------------------------------------------
+
+    const responseId =
+      "MCC-" +
+      Utilities.formatDate(
+        new Date(),
+        Session.getScriptTimeZone(),
+        "yyyyMMddHHmmss"
+      );
+
+    //----------------------------------------------------
+    // Respondent_Master
+    //----------------------------------------------------
+
+    const r = payload.Respondent_Master;
+
+    respondent.appendRow([
+      responseId,
+      new Date(),
+      r.Name,
+      r.Email,
+      r.City,
+      r.State,
+      r.Occupation,
+      r.Age_Group,
+      r.Carbon_Score,
+      r.Monthly_CO2_kg,
+      r.Annual_CO2_t,
+      r.Green_Points,
+      r.Badge,
+      r.Quiz_Version,
+      r.Certificate_Generated,
+      r.Consent_Given,
+      r.Device_Type,
+      r.Browser,
+      r.Completion_Time_sec,
+      r.Quiz_Completed,
+      r.Source
+    ]);
+
+    dashboard.appendRow([new Date(), "STEP 3", "Respondent Saved"]);
+
+    //----------------------------------------------------
+    // Quiz_Responses
+    //----------------------------------------------------
+
+    const q = payload.Quiz_Responses;
+
+    quiz.appendRow([
+      responseId,
+      q.Lifestyle,
+      q.Location,
+      q.Household,
+      q.Pets,
+      q.Transport,
+      q.Commute_Distance_km,
+      q.Travel_Days,
+      q.Fuel,
+      q.Metro_Access,
+      q.Long_Distance_Travel,
+      q.Flights_Per_Year,
+      q.AC_Hours,
+      q.Appliances,
+      q.Device_Usage,
+      q.Cooking_Source,
+      q.Home_Tech,
+      q.Diet,
+      q.NonVeg_Meals,
+      q.Dairy,
+      q.Food_Delivery,
+      q.Reusable_Items,
+      q.Device_Count,
+      q.Smart_Devices,
+      q.After_Work_Usage,
+      q.Sustainability_Importance,
+      q.Challenges,
+      q.Participation,
+      q.Offset_Interest,
+      q.Reward_Motivation,
+      q.Engagement_Style,
+      q.Platform_Usage,
+      q.Employee_Sustainability,
+      q.Workplace_Participation,
+      q.Biggest_Challenge,
+      q.Feature_Suggestions,
+      q.Sustainable_Living_Definition
+    ]);
+
+    dashboard.appendRow([new Date(), "STEP 4", "Quiz Saved"]);
+
+    //----------------------------------------------------
+// Carbon_Breakdown
+//----------------------------------------------------
+
+const carbon = ss.getSheetByName("Carbon_Breakdown");
+
+const c = payload.Carbon_Breakdown;
+
+carbon.appendRow([
+
+  responseId,
+
+  c.Mobility_CO2_kg,
+  c.Home_Energy_CO2_kg,
+  c.Food_Lifestyle_CO2_kg,
+  c.Digital_Lifestyle_CO2_kg,
+  c.Travel_CO2_kg,
+  c.Total_Monthly_CO2_kg,
+  c.Annual_CO2_t
+
+]);
+
+dashboard.appendRow([
+  new Date(),
+  "STEP 5",
+  "Carbon Saved"
+]);
+
+
+//----------------------------------------------------
+// Recommendations
+//----------------------------------------------------
+
+const recommendation = ss.getSheetByName("Recommendations");
+
+const rec = payload.Recommendations;
+
+recommendation.appendRow([
+
+  responseId,
+
+  rec.Recommendation_1,
+  rec.Recommendation_2,
+  rec.Recommendation_3,
+  rec.Priority,
+  rec.Potential_CO2_Reduction,
+  rec.Status
+
+]);
+
+dashboard.appendRow([
+  new Date(),
+  "STEP 6",
+  "Recommendations Saved"
+]);
+
+
+
+    return ContentService
+  .createTextOutput(
+    JSON.stringify({
+      status: "success",
+      responseId: responseId
+    })
+  )
+  .setMimeType(ContentService.MimeType.JSON);
+
+  }
+
+  catch (err) {
+
+    dashboard.appendRow([
+      new Date(),
+      "ERROR",
+      err.toString()
+    ]);
+
+    return ContentService
+  .createTextOutput(
+    JSON.stringify({
+      status: "error",
+      message: err.toString()
+    })
+  )
+  .setMimeType(ContentService.MimeType.JSON);
+
+  }
+
+}
+
+ old working code ends----------------------------*/
