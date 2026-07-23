@@ -65,11 +65,13 @@ function handleSectionSave(ss, logs, respondent, quiz, responseId, payload) {
   var respRow = findRowByResponseId(respondent, responseId);
 
   if (respRow === -1) {
-    // Create partial row (21 columns)
-    var newRespRow = new Array(21).fill("");
-    newRespRow[0]  = responseId;        // Col 1:  Response_ID
-    newRespRow[1]  = timestamp;         // Col 2:  Timestamp
-    newRespRow[16] = deviceType;        // Col 17: Device_Type
+    // Create partial row (27 columns — matches final save schema)
+    var newRespRow = new Array(27).fill("");
+    newRespRow[0]  = responseId;              // Col 1:  Response_ID
+    newRespRow[1]  = timestamp;               // Col 2:  Timestamp
+    newRespRow[22] = deviceType;              // Col 23: Device_Type
+    newRespRow[23] = payload.Browser || "";   // Col 24: Browser
+    newRespRow[26] = payload.Source || "";    // Col 27: Source
     if (data["City"])  newRespRow[4] = data["City"];   // Col 5
     if (data["State"]) newRespRow[5] = data["State"];  // Col 6
     respondent.appendRow(newRespRow);
@@ -206,11 +208,11 @@ function handleFinalSave(ss, logs, respondent, quiz, responseId, payload) {
 
   logs.appendRow([new Date(), "STEP 4", "Quiz Saved"]);
 
-  /* ── Carbon_Breakdown ── */
+  /* ── Carbon_Breakdown (upsert) ── */
   var carbon = ss.getSheetByName("Carbon_Breakdown");
   var c = payload.Carbon_Breakdown;
 
-  carbon.appendRow([
+  var carbonData = [
     responseId,
     c.Mobility_CO2_kg,
     c.Home_Energy_CO2_kg,
@@ -219,15 +221,22 @@ function handleFinalSave(ss, logs, respondent, quiz, responseId, payload) {
     c.Travel_CO2_kg,
     c.Total_Monthly_CO2_kg,
     c.Annual_CO2_t
-  ]);
+  ];
+
+  var carbonRow = findRowByResponseId(carbon, responseId);
+  if (carbonRow === -1) {
+    carbon.appendRow(carbonData);
+  } else {
+    carbon.getRange(carbonRow, 1, 1, carbonData.length).setValues([carbonData]);
+  }
 
   logs.appendRow([new Date(), "STEP 5", "Carbon Saved"]);
 
-  /* ── Recommendations ── */
+  /* ── Recommendations (upsert) ── */
   var recommendation = ss.getSheetByName("Recommendations");
   var rec = payload.Recommendations;
 
-  recommendation.appendRow([
+  var recData = [
     responseId,
     rec.Recommendation_1,
     rec.Recommendation_2,
@@ -235,7 +244,14 @@ function handleFinalSave(ss, logs, respondent, quiz, responseId, payload) {
     rec.Priority,
     rec.Potential_CO2_Reduction,
     rec.Status
-  ]);
+  ];
+
+  var recRow = findRowByResponseId(recommendation, responseId);
+  if (recRow === -1) {
+    recommendation.appendRow(recData);
+  } else {
+    recommendation.getRange(recRow, 1, 1, recData.length).setValues([recData]);
+  }
 
   logs.appendRow([new Date(), "STEP 6", "Recommendations Saved"]);
 }
@@ -300,6 +316,10 @@ function doPost(e) {
    DASHBOARD CALCULATOR
    ════════════════════════════════════════════════════ */
 function updateDashboard(ss) {
+  // Allow manual execution from Apps Script editor (ss won't be passed)
+  if (!ss) {
+    ss = SpreadsheetApp.openById("1RiREbKcfNxnehPmTtZX1n-0w7wCC7uFizgtDdVcTDQE");
+  }
   var dashboard = ss.getSheetByName("Dashboard_Data");
   var respondent = ss.getSheetByName("Respondent_Master");
   var quiz = ss.getSheetByName("Quiz_Responses");
@@ -318,6 +338,8 @@ function updateDashboard(ss) {
   var colAnnual = respHeaders.indexOf("Annual_CO2_t");
   var colPoints = respHeaders.indexOf("Green_Points");
   var colIsFinal = respHeaders.indexOf("Is_Final");
+  // Fallback: Is_Final is at index 17 (18th column) in the respondentData array
+  if (colIsFinal === -1) colIsFinal = 17;
   var colCity = respHeaders.indexOf("City");
 
   var quizHeaders = quizData[0];
@@ -375,22 +397,22 @@ function updateDashboard(ss) {
   var offsetInterestPct = offsetTotalCount > 0 ? Math.round((offsetYesCount / offsetTotalCount) * 100) : 0;
   var completionRate = totalRespondents > 0 ? Math.round((completedQuizzes / totalRespondents) * 100) : 0;
 
-  // Format array to paste exactly into Dashboard_Data (Rows 2 to 11)
-  var dashboardUpdates = [
-    ["Total_Respondents", totalRespondents, ""],
-    ["Completed_Quizzes", completedQuizzes, ""],
-    ["Average_Carbon_Score", avgScore, ""],
-    ["Average_Monthly_CO2", avgMonthly, "kg"],
-    ["Average_Annual_CO2", avgAnnual, "t"],
-    ["Average_Green_Points", avgPoints, ""],
-    ["Top_Transport_Mode", topTransport, ""],
-    ["Top_City", topCity, ""],
-    ["Offset_Interest_Yes_%", offsetInterestPct, "%"],
-    ["Completion_Rate", completionRate, "%"]
+  // Write only the Value column (Col B = column 2) — Column A already has Metric names pre-filled
+  var valueUpdates = [
+    [totalRespondents],
+    [completedQuizzes],
+    [avgScore],
+    [avgMonthly],
+    [avgAnnual],
+    [avgPoints],
+    [topTransport],
+    [topCity],
+    [offsetInterestPct],
+    [completionRate]
   ];
 
-  // Set values starting at Row 2, Column 1
-  dashboard.getRange(2, 1, dashboardUpdates.length, 3).setValues(dashboardUpdates);
+  // Write values to Column B (index 2), rows 2–11
+  dashboard.getRange(2, 2, valueUpdates.length, 1).setValues(valueUpdates);
 }
 
 function getTopKey(obj) {

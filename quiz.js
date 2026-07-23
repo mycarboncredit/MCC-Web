@@ -186,7 +186,7 @@ const sections = [
         key: "flights",
         value: "",
         min: 0,
-        max: 20,
+        max: 50,
         step: 1,
         suffix: " flights"
       }
@@ -197,7 +197,7 @@ const sections = [
     name: "Home Energy",
     badge: "Energy Saver Badge Unlocked",
     questions: [
-      { title: "AC usage per day?", help: "Use the dial-like slider for summer usage.", type: "range", key: "acHours", value: "", min: 0, max: 12, step: 1, suffix: " hrs/day" },
+      { title: "AC usage per day?", help: "Use the dial-like slider for summer usage.", type: "range", key: "acHours", value: "", min: 0, max: 24, step: 1, suffix: " hrs/day" },
       {
         title: "Select appliances you use daily",
         help: "Selected items glow green.",
@@ -259,7 +259,7 @@ const sections = [
         ]
       },
       { title: "Non-veg consumption frequency", help: "Select meals per week.", type: "range", key: "nonVegMeals", value: "", min: 0, max: 21, step: 1, suffix: " meals/week" },
-      { title: "Dairy consumption", help: "Fill the milk glass from empty to full.", type: "range", key: "dairy", value: "", min: 0, max: 100, step: 5, suffix: "%" },
+      { title: "Dairy consumption", help: "Fill the milk glass from empty to full. (Your daily personal consumption.)", type: "range", key: "dairy", value: "", min: 0, max: 100, step: 5, suffix: "%" },
       { title: "Food delivery frequency", help: "How many food packages arrive monthly?", type: "range", key: "deliveries", value: "", min: 0, max: 20, step: 1, suffix: " deliveries/month" },
       {
         title: "Reusable items",
@@ -281,7 +281,7 @@ const sections = [
     name: "Digital Lifestyle",
     badge: "Digital Minimalist Badge Unlocked",
     questions: [
-      { title: "Number of devices used", help: "Stack your daily digital devices.", type: "range", key: "deviceCount", value: "", min: 0, max: 10, step: 1, suffix: " devices" },
+      { title: "Number of devices you personally use", help: "Stack only your personal devices. 📱💻", type: "range", key: "deviceCount", value: "", min: 0, max: 10, step: 1, suffix: " devices" },
       {
         title: "Smart devices used",
         help: "Select the technology badges you use.",
@@ -805,14 +805,14 @@ function findPreviousVisibleIndex(fromIndex) {
 function getValue(key, fallback) {
   const question = questions.find((item) => item.key === key);
   if (!question) return fallback;
-  
+
   const value = question.value;
-  
+
   // If "Others" is selected and they provided a custom value, return the custom value
   if (typeof value === "string" && value.toLowerCase() === "others" && question.customValue) {
     return question.customValue;
   }
-  
+
   if (Array.isArray(value)) return value.length ? value : fallback;
   return value !== "" ? value : fallback;
 }
@@ -863,7 +863,7 @@ function hasAnswer(question) {
 
 function renderChoice(question) {
   let html = question.options.map((option) => answerButton(question, option)).join("");
-  
+
   if (question.value === "others") {
     html += `
       <div class="custom-input-group" style="margin-top:16px;">
@@ -871,9 +871,9 @@ function renderChoice(question) {
       </div>
     `;
   }
-  
+
   answerArea.innerHTML = html;
-  
+
   if (question.value === "others") {
     const input = answerArea.querySelector("#customChoiceInput");
     input.addEventListener("input", (e) => {
@@ -903,9 +903,9 @@ function renderMulti(question) {
     if (day === "None") return { value: "none", label: "None", icon: "Ø", helper: "Work from home" };
     return { value: day, label: day, icon: day.slice(0, 1), helper: "Travel day" };
   }) : question.options;
-  
+
   let html = options.map((option) => answerButton(question, option, true)).join("");
-  
+
   if (question.value.includes("others")) {
     html += `
       <div class="custom-input-group" style="margin-top:16px;">
@@ -913,9 +913,9 @@ function renderMulti(question) {
       </div>
     `;
   }
-  
+
   answerArea.innerHTML = html;
-  
+
   if (question.value.includes("others")) {
     const input = answerArea.querySelector("#customMultiInput");
     input.addEventListener("input", (e) => {
@@ -931,7 +931,7 @@ function renderMulti(question) {
     button.addEventListener("click", () => {
       const val = button.dataset.value;
       const selected = new Set(question.value);
-      
+
       if (selected.has(val)) {
         selected.delete(val);
       } else {
@@ -951,7 +951,7 @@ function renderMulti(question) {
           selected.add(val);
         }
       }
-      
+
       question.value = Array.from(selected);
       if (!question.value.includes("others")) {
         question.customValue = "";
@@ -1168,7 +1168,7 @@ const greenPointConfig = {
 function calculateMobilityScore() {
   const max = greenPointConfig.maxPoints.mobility;
   let score = 0;
-  
+
   const transportArr = getValue("transport", []);
   const transport = Array.isArray(transportArr) ? (transportArr[0] || "car") : (transportArr || "car");
   const tWeight = transportArr.length
@@ -1187,7 +1187,7 @@ function calculateMobilityScore() {
   const longTravel = getValue("longTravel", "train");
   const ltWeight = greenPointConfig.weights.longTravel[longTravel] || 0.5;
   const flights = Number(getValue("flights", 1));
-  const flightImpact = Math.max(0, 1 - (flights / 10)); 
+  const flightImpact = Math.max(0, 1 - (flights / 50));
   score += (max * 0.1) * ltWeight;
   score += (max * 0.1) * flightImpact;
 
@@ -1199,7 +1199,7 @@ function calculateHomeEnergyScore() {
   let score = 0;
 
   const acHours = Number(getValue("acHours", 4));
-  score += (max * 0.3) * Math.max(0, 1 - (acHours / 12));
+  score += (max * 0.3) * Math.max(0, 1 - (acHours / 24));
 
   const deviceUsage = Number(getValue("deviceUsage", 60));
   score += (max * 0.2) * Math.max(0, 1 - (deviceUsage / 100));
@@ -1228,7 +1228,7 @@ function calculateFoodScore() {
 
   const nonVegMeals = Number(getValue("nonVegMeals", 2));
   const dairy = Number(getValue("dairy", 50));
-  const dietImpact = Math.max(0, 1 - (nonVegMeals / 21)); 
+  const dietImpact = Math.max(0, 1 - (nonVegMeals / 21));
   const dairyImpact = Math.max(0, 1 - (dairy / 100));
   score += (max * 0.15) * dietImpact;
   score += (max * 0.15) * dairyImpact;
@@ -1248,7 +1248,7 @@ function calculateFoodScore() {
 
 function calculateDigitalScore() {
   const max = greenPointConfig.maxPoints.digital;
-  let score = max; 
+  let score = max;
 
   const deviceCount = Number(getValue("deviceCount", 3));
   score -= (deviceCount * 2.5); // Reduced — devices less emission-heavy than transport
@@ -1258,7 +1258,7 @@ function calculateDigitalScore() {
 
   const smartDevices = getValue("smartDevices", []);
   smartDevices.forEach(device => {
-    score += (max * (greenPointConfig.weights.smartDevices[device] || 0)); 
+    score += (max * (greenPointConfig.weights.smartDevices[device] || 0));
   });
 
   return Math.max(0, Math.round(score));
@@ -1272,7 +1272,7 @@ function calculateBehaviourScore() {
   score += (max * 0.2) * (importance / 5);
 
   const participation = getValue("participation", []);
-  score += (max * 0.4) * (participation.length / 4); 
+  score += (max * 0.4) * (participation.length / 4);
 
   const offset = getValue("offset", "maybe");
   score += (max * 0.2) * (greenPointConfig.weights.fuel.ev === 1.0 ? (offset === "yes" ? 1.0 : (offset === "maybe" ? 0.5 : 0)) : 0.5);
@@ -1368,25 +1368,25 @@ function calculateKnowledgeScore(sectionId) {
 function calculateConsistencyScore() {
   const maxConsistency = 20;
   const importance = Number(getValue("importance", 3));
-  
+
   // Dynamic divisor — sum of actual max points for mobility + home + food
   const greenMaxSum = greenPointConfig.maxPoints.mobility + greenPointConfig.maxPoints.home + greenPointConfig.maxPoints.food;
   const mob = calculateMobilityScore();
   const home = calculateHomeEnergyScore();
   const food = calculateFoodScore();
-  const total = mob + home + food; 
+  const total = mob + home + food;
   const percentage = total / greenMaxSum; // Dynamic instead of hardcoded 650
-  
+
   // High importance: penalize if behaviour doesn't match
   if (importance >= 4) {
     if (percentage >= 0.5) return maxConsistency;
     if (percentage >= 0.3) return maxConsistency * 0.5;
     return 0; // Greenwashing penalty
-  // Moderate importance: more lenient
+    // Moderate importance: more lenient
   } else if (importance === 3) {
     if (percentage >= 0.5) return maxConsistency;
-    return maxConsistency * 0.75; 
-  // Low importance: reward if actions are better than stated
+    return maxConsistency * 0.75;
+    // Low importance: reward if actions are better than stated
   } else {
     if (percentage >= 0.4) return maxConsistency; // Honest sustainability bonus
     return maxConsistency * 0.5;
@@ -1397,15 +1397,15 @@ function calculateConsistencyScore() {
 function calculateBehaviourAwareness() {
   const max = awarenessConfig.maxPoints.behaviour;
   let score = 0;
-  
+
   const importance = Number(getValue("importance", 3));
   score += 10 * (awarenessConfig.weights.importance[importance] || 0.5);
-  
+
   const offset = getValue("offset", "maybe");
   score += 5 * (awarenessConfig.weights.intent[offset] || 0);
-  
+
   score += calculateConsistencyScore();
-  
+
   return Math.round(score);
 }
 
@@ -1413,13 +1413,13 @@ function calculateBehaviourAwareness() {
 function calculateWorkplaceAwareness() {
   const max = awarenessConfig.maxPoints.workplace;
   let score = 0;
-  
+
   const companyTracking = getValue("companyTracking", "maybe");
   score += (max * 0.3) * (awarenessConfig.weights.intent[companyTracking] || 0); // 7.5 pts max
-  
+
   const wPart = getValue("workplaceParticipation", []);
   score += (max * 0.7) * (wPart.length / 4); // 17.5 pts max
-  
+
   return Math.round(score);
 }
 
@@ -1429,7 +1429,7 @@ function getSustainabilityStage() {
   const participation = getValue("participation", []).length;
   const greenMaxSum = greenPointConfig.maxPoints.mobility + greenPointConfig.maxPoints.home + greenPointConfig.maxPoints.food;
   const greenPct = (calculateMobilityScore() + calculateHomeEnergyScore() + calculateFoodScore()) / greenMaxSum;
-  
+
   if (importance >= 4 && participation >= 3 && greenPct >= 0.5) return "Maintenance";
   if (importance >= 3 && participation >= 2 && greenPct >= 0.3) return "Action";
   if (importance >= 3 || participation >= 1) return "Contemplation";
@@ -1470,7 +1470,7 @@ function showReward(sectionId) {
   rewardSectionId = sectionId;
   let earnedXp = 0;
   let earnedAwareness = 0;
-  
+
   if (!awardedSections.has(sectionId)) {
     awardedSections.add(sectionId);
     earnedXp = calculateSectionGreenPoints(sectionId);
@@ -1482,13 +1482,13 @@ function showReward(sectionId) {
     earnedXp = calculateSectionGreenPoints(sectionId);
     earnedAwareness = calculateSectionAwareness(sectionId);
   }
-  
+
   // Silent save after each section
   const sectionPayload = buildSectionPayload(sectionId);
   if (sectionPayload) {
-    saveQuizResponse(sectionPayload).catch(() => {});
+    saveQuizResponse(sectionPayload).catch(() => { });
   }
-  
+
   quizStage.hidden = true;
   landingScreen.hidden = true;
   loginScreen.hidden = true;
@@ -1497,15 +1497,15 @@ function showReward(sectionId) {
   rewardScreen.hidden = false;
   document.querySelector("#walletPill").hidden = true;
   document.querySelector("#rewardSection").textContent = section.name;
-  
+
   // Populate metric flip cards (only on back)
   document.querySelector("#rewardXpBack").textContent = `+${earnedXp} Points`;
   document.querySelector("#rewardAwarenessBack").textContent = `+${earnedAwareness} Points`;
-  
+
   const badge = getBadgeInfo(walletPoints);
   document.querySelector("#rewardBadgeBack").textContent = badge.name;
   document.querySelector("#rewardBadgeIcon").textContent = badge.icon;
-  
+
   continueButton.textContent = findNextVisibleIndex(currentIndex) === -1 ? "See my score →" : "Continue →";
   saveQuizState();
 }
@@ -1561,223 +1561,223 @@ function calculate() {
 
 function buildPayload() {
 
-    const result = calculate();
+  const result = calculate();
 
-    const payload = {
+  const payload = {
 
-Respondent_Master: {
+    Respondent_Master: {
 
-    Response_ID: responseId,
+      Response_ID: responseId,
 
-    Timestamp: "",
+      Timestamp: "",
 
-    Name: window.currentUser ? window.currentUser.name : "",
+      Name: window.currentUser ? window.currentUser.name : "",
 
-    Email: window.currentUser ? window.currentUser.email : "",
+      Email: window.currentUser ? window.currentUser.email : "",
 
-    City: getValue("location", "").split(",")[0].trim(),
+      City: getValue("location", "").split(",")[0].trim(),
 
-    State: getValue("location", "").includes(",")
+      State: getValue("location", "").includes(",")
         ? getValue("location", "").split(",")[1].trim()
         : "",
 
-    Occupation: "",
+      Occupation: "",
 
-    Age_Group: window.currentUser ? window.currentUser.ageGroup || "" : "",
+      Age_Group: window.currentUser ? window.currentUser.ageGroup || "" : "",
 
-    Carbon_Score: Math.round(result.total),
+      Carbon_Score: Math.round(result.total),
 
-    Monthly_CO2_kg: Math.round(result.total),
+      Monthly_CO2_kg: Math.round(result.total),
 
-    Annual_CO2_t: Number(result.annual.toFixed(2)),
+      Annual_CO2_t: Number(result.annual.toFixed(2)),
 
-    Green_Points: walletPoints,
+      Green_Points: walletPoints,
 
-    Awareness_Score: totalAwarenessScore,
+      Awareness_Score: totalAwarenessScore,
 
-    // ===== NEW AUDIT COLUMNS =====
-    Awareness_Breakdown: JSON.stringify(
-      sections.reduce((acc, s) => { acc[s.id] = calculateSectionAwareness(s.id); return acc; }, {})
-    ),
+      // ===== NEW AUDIT COLUMNS =====
+      Awareness_Breakdown: JSON.stringify(
+        sections.reduce((acc, s) => { acc[s.id] = calculateSectionAwareness(s.id); return acc; }, {})
+      ),
 
-    Green_Points_Breakdown: JSON.stringify(
-      sections.reduce((acc, s) => { acc[s.id] = calculateSectionGreenPoints(s.id); return acc; }, {})
-    ),
+      Green_Points_Breakdown: JSON.stringify(
+        sections.reduce((acc, s) => { acc[s.id] = calculateSectionGreenPoints(s.id); return acc; }, {})
+      ),
 
-    Consistency_Score: calculateConsistencyScore(),
+      Consistency_Score: calculateConsistencyScore(),
 
-    Sustainability_Stage: getSustainabilityStage(),
+      Sustainability_Stage: getSustainabilityStage(),
 
-    Badge: awardedSections.size + " Badges",
+      Badge: awardedSections.size + " Badges",
 
-    Quiz_Version: "1.0",
+      Quiz_Version: "1.0",
 
-    Certificate_Generated: false,
+      Certificate_Generated: false,
 
-    Consent_Given: true,
+      Consent_Given: true,
 
-    Device_Type:
+      Device_Type:
         /Mobi|Android/i.test(navigator.userAgent)
-            ? "Mobile"
-            : "Desktop",
+          ? "Mobile"
+          : "Desktop",
 
-    Browser: navigator.userAgent,
+      Browser: navigator.userAgent,
 
-    Completion_Time_sec: quizStartTime ? Math.round((Date.now() - quizStartTime) / 1000) : 0,
+      Completion_Time_sec: quizStartTime ? Math.round((Date.now() - quizStartTime) / 1000) : 0,
 
-    Quiz_Completed: true,
+      Quiz_Completed: true,
 
-    Is_Final: true,
+      Is_Final: true,
 
-    Source: window.location.hostname
+      Source: window.location.hostname
 
-},
-        Quiz_Responses: {
+    },
+    Quiz_Responses: {
 
-    Lifestyle: getValue("lifestyle", ""),
+      Lifestyle: getValue("lifestyle", ""),
 
-    Location: getValue("location", ""),
+      Location: getValue("location", ""),
 
-    Household: getValue("household", ""),
+      Household: getValue("household", ""),
 
-    Pets: (() => {
-      const petVal = getValue("pets", []);
-      if (petVal.includes("others")) {
-        const q = questions.find(q => q.key === "pets");
-        return q && q.customValue ? q.customValue : "Others";
-      }
-      return petVal.join(", ");
-    })(),
+      Pets: (() => {
+        const petVal = getValue("pets", []);
+        if (petVal.includes("others")) {
+          const q = questions.find(q => q.key === "pets");
+          return q && q.customValue ? q.customValue : "Others";
+        }
+        return petVal.join(", ");
+      })(),
 
-    Transport: getValue("transport", "").join ? getValue("transport", "").join(", ") : getValue("transport", ""),
+      Transport: getValue("transport", "").join ? getValue("transport", "").join(", ") : getValue("transport", ""),
 
-    Commute_Distance_km: getValue("distance", ""),
+      Commute_Distance_km: getValue("distance", ""),
 
-    Travel_Days: getValue("travelDays", []).filter(d => d !== "none").length,
+      Travel_Days: getValue("travelDays", []).filter(d => d !== "none").length,
 
-    Fuel: getValue("fuel", ""),
+      Fuel: getValue("fuel", ""),
 
-    Metro_Access: getValue("metroAccess", ""),
+      Metro_Access: getValue("metroAccess", ""),
 
-    Long_Distance_Travel: getValue("longTravel", ""),
+      Long_Distance_Travel: getValue("longTravel", ""),
 
-    Flights_Per_Year: getValue("flights", ""),
+      Flights_Per_Year: getValue("flights", ""),
 
-    AC_Hours: getValue("acHours", ""),
+      AC_Hours: getValue("acHours", ""),
 
-    Appliances: getValue("appliances", []).join(", "),
+      Appliances: getValue("appliances", []).join(", "),
 
-    Device_Usage: getValue("deviceUsage", ""),
+      Device_Usage: getValue("deviceUsage", ""),
 
-    Cooking_Source: getValue("cooking", ""),
+      Cooking_Source: getValue("cooking", ""),
 
-    Home_Tech: getValue("homeTech", []).join(", "),
+      Home_Tech: getValue("homeTech", []).join(", "),
 
-    Diet: getValue("diet", ""),
+      Diet: getValue("diet", ""),
 
-    NonVeg_Meals: getValue("nonVegMeals", ""),
+      NonVeg_Meals: getValue("nonVegMeals", ""),
 
-    Dairy: getValue("dairy", ""),
+      Dairy: getValue("dairy", ""),
 
-    Food_Delivery: getValue("deliveries", ""),
+      Food_Delivery: getValue("deliveries", ""),
 
-    Reusable_Items: getValue("reusables", []).join(", "),
+      Reusable_Items: getValue("reusables", []).join(", "),
 
-    Device_Count: getValue("deviceCount", ""),
+      Device_Count: getValue("deviceCount", ""),
 
-    Smart_Devices: getValue("smartDevices", []).join(", "),
+      Smart_Devices: getValue("smartDevices", []).join(", "),
 
-    After_Work_Usage: getValue("afterWorkUsage", ""),
+      After_Work_Usage: getValue("afterWorkUsage", ""),
 
-    Sustainability_Importance: getValue("importance", ""),
+      Sustainability_Importance: getValue("importance", ""),
 
-    Challenges: getValue("challenges", []).join(", "),
+      Challenges: getValue("challenges", []).join(", "),
 
-    Participation: getValue("participation", []).join(", "),
+      Participation: getValue("participation", []).join(", "),
 
-    Offset_Interest: getValue("offset", ""),
+      Offset_Interest: getValue("offset", ""),
 
-    Reward_Motivation: getValue("rewardMotivation", ""),
+      Reward_Motivation: getValue("rewardMotivation", ""),
 
-    Engagement_Style: getValue("engagement", ""),
+      Engagement_Style: getValue("engagement", ""),
 
-    Platform_Usage: getValue("usageFrequency", ""),
+      Platform_Usage: getValue("usageFrequency", ""),
 
-    Employee_Sustainability: getValue("companyTracking", ""),
+      Employee_Sustainability: getValue("companyTracking", ""),
 
-    Workplace_Participation: getValue("workplaceParticipation", []).join(", "),
+      Workplace_Participation: getValue("workplaceParticipation", []).join(", "),
 
-    Biggest_Challenge: getValue("biggestChallenge", ""),
+      Biggest_Challenge: getValue("biggestChallenge", ""),
 
-    Feature_Suggestions: getValue("featureIdea", ""),
+      Feature_Suggestions: getValue("featureIdea", ""),
 
-    Sustainable_Living_Definition: getValue("sustainableLiving", "")
+      Sustainable_Living_Definition: getValue("sustainableLiving", "")
 
-},
+    },
 
-       Carbon_Breakdown: {
+    Carbon_Breakdown: {
 
-    Mobility_CO2_kg:
+      Mobility_CO2_kg:
         Number(result.categories.find(c => c.key === "commute")?.value.toFixed(2) || 0),
 
-    Home_Energy_CO2_kg:
+      Home_Energy_CO2_kg:
         Number(result.categories.find(c => c.key === "home")?.value.toFixed(2) || 0),
 
-    Food_Lifestyle_CO2_kg:
+      Food_Lifestyle_CO2_kg:
         Number(result.categories.find(c => c.key === "food")?.value.toFixed(2) || 0),
 
-    Digital_Lifestyle_CO2_kg:
+      Digital_Lifestyle_CO2_kg:
         Number(result.categories.find(c => c.key === "digital")?.value.toFixed(2) || 0),
 
-    Travel_CO2_kg:
+      Travel_CO2_kg:
         Number(result.categories.find(c => c.key === "travel")?.value.toFixed(2) || 0),
 
-    Total_Monthly_CO2_kg:
+      Total_Monthly_CO2_kg:
         Number(result.total.toFixed(2)),
 
-    Annual_CO2_t:
+      Annual_CO2_t:
         Number(result.annual.toFixed(2))
 
-},
+    },
 
-        totalScore: Math.round(result.total),
+    totalScore: Math.round(result.total),
 
-        annualScore: result.annual,
+    annualScore: result.annual,
 
-        wallet: {
+    wallet: {
 
-            greenPoints: walletPoints,
+      greenPoints: walletPoints,
 
-            badgesUnlocked: awardedSections.size
+      badgesUnlocked: awardedSections.size
 
-        },
+    },
 
-        Recommendations: {
+    Recommendations: {
 
-    Recommendation_1: buildRecommendations(result)[0] || "",
+      Recommendation_1: buildRecommendations(result)[0] || "",
 
-    Recommendation_2: buildRecommendations(result)[1] || "",
+      Recommendation_2: buildRecommendations(result)[1] || "",
 
-    Recommendation_3: buildRecommendations(result)[2] || "",
+      Recommendation_3: buildRecommendations(result)[2] || "",
 
-    Priority:
+      Priority:
         result.categories
-            .sort((a, b) => b.value - a.value)[0]
-            .label,
+          .sort((a, b) => b.value - a.value)[0]
+          .label,
 
-    Potential_CO2_Reduction:
+      Potential_CO2_Reduction:
         Math.round(
-            result.categories
-                .sort((a, b) => b.value - a.value)[0]
-                .value * 0.15
+          result.categories
+            .sort((a, b) => b.value - a.value)[0]
+            .value * 0.15
         ) + " kg CO₂/month",
 
-    Status: "Pending"
+      Status: "Pending"
 
-}
-    };
+    }
+  };
 
-    return payload;
+  return payload;
 }
 async function showResults() {
   const result = calculate();
@@ -1841,16 +1841,16 @@ function saveUserDetails() {
   const nameInput = document.querySelector("#userNameInput");
   const emailInput = document.querySelector("#userEmailInput");
   const ageInput = document.querySelector("#userAgeInput");
-  
+
   const nameVal = nameInput.value.trim();
   const emailVal = emailInput.value.trim();
   const ageVal = ageInput.value.trim();
-  
+
   const nameError = document.querySelector("#nameError");
   const emailError = document.querySelector("#emailError");
   const ageError = document.querySelector("#ageError");
   let isValid = true;
-  
+
   // Name Validation
   const nameRegex = /^[A-Za-z\s]{3,}$/;
   const distinctNameChars = new Set(nameVal.toLowerCase().replace(/\s/g, ''));
@@ -1868,7 +1868,7 @@ function saveUserDetails() {
   const emailRegex = /^[a-zA-Z0-9._%+-]{3,}@[a-zA-Z0-9.-]{3,}\.[a-zA-Z]{2,}$/;
   const domain = emailVal.split('@')[1]?.toLowerCase();
   const allowedDomains = ["gmail.com", "yahoo.com", "yahoo.co.in", "yahoo.in", "outlook.com", "hotmail.com", "icloud.com", "microsoft.com", "live.com", "me.com", "mac.com", "msn.com"];
-  
+
   const isValidFormat = emailRegex.test(emailVal) && !/(.)\1{4,}/i.test(emailVal.split('@')[0]);
   const isAllowedDomain = allowedDomains.includes(domain);
 
@@ -1894,20 +1894,20 @@ function saveUserDetails() {
   }
 
   if (!isValid) return;
-  
+
   // Autocorrect name to Title Case (Initcap)
   const formattedName = nameVal.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-  
+
   window.currentUser = {
     name: formattedName,
     email: emailVal.toLowerCase(),
     ageGroup: ageVal
   };
-  
+
   isLoggedIn = true;
   document.querySelector("#loginButton").textContent = window.currentUser.name;
   saveQuizState();
-  
+
   // Update result copy if it's currently showing
   const resultCopy = document.querySelector("#resultCopy");
   if (resultCopy && resultCopy.textContent.includes("Estimated annual")) {
@@ -2202,7 +2202,7 @@ document.querySelector("#userNameInput").addEventListener("blur", (e) => {
   const val = e.target.value.trim();
   const errorSpan = document.querySelector("#nameError");
   if (!val) { errorSpan.style.display = "none"; e.target.style.borderColor = "var(--line)"; return; }
-  
+
   const nameRegex = /^[A-Za-z\s]{3,}$/;
   const distinctNameChars = new Set(val.toLowerCase().replace(/\s/g, ''));
   if (!nameRegex.test(val) || distinctNameChars.size < 2 || /(.)\1{3,}/i.test(val)) {
@@ -2220,14 +2220,14 @@ document.querySelector("#userEmailInput").addEventListener("blur", (e) => {
   const val = e.target.value.trim();
   const errorSpan = document.querySelector("#emailError");
   if (!val) { errorSpan.style.display = "none"; e.target.style.borderColor = "var(--line)"; return; }
-  
+
   const emailRegex = /^[a-zA-Z0-9._%+-]{3,}@[a-zA-Z0-9.-]{3,}\.[a-zA-Z]{2,}$/;
   const domain = val.split('@')[1]?.toLowerCase();
   const allowedDomains = ["gmail.com", "yahoo.com", "yahoo.co.in", "yahoo.in", "outlook.com", "hotmail.com", "icloud.com", "microsoft.com", "live.com", "me.com", "mac.com", "msn.com"];
-  
+
   const isValidFormat = emailRegex.test(val) && !/(.)\1{4,}/i.test(val.split('@')[0]);
   const isAllowedDomain = allowedDomains.includes(domain);
-  
+
   if (!isValidFormat || !isAllowedDomain) {
     errorSpan.textContent = !isAllowedDomain ? "Please use a valid provider (gmail, yahoo, outlook, etc)." : "Please enter a real email address.";
     errorSpan.style.display = "block";
