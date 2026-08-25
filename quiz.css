@@ -1893,3 +1893,16 @@ li strong {
     grid-template-columns: 1fr;
   }
 }
+/* Nested Flights Question Styles */
+.nested-flights-container { display: flex; flex-direction: column; gap: 16px; }
+.nested-flight-card { background: var(--surface, #fcfbf7); border: 1.5px solid var(--line, #d0cfc7); border-radius: 12px; padding: 16px; }
+.flight-top-label, .flight-sub-label { display: flex; align-items: flex-start; gap: 12px; cursor: pointer; user-select: none; }
+.flight-top-label input, .flight-sub-label input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+.flight-checkmark { display: inline-block; width: 24px; height: 24px; min-width: 24px; background-color: white; border: 2px solid var(--line, #d0cfc7); border-radius: 6px; position: relative; transition: all 0.2s ease; margin-top: 2px; }
+.flight-top-label input:checked ~ .flight-checkmark, .flight-sub-label input:checked ~ .flight-checkmark { background-color: var(--primary, #1f3d2c); border-color: var(--primary, #1f3d2c); }
+.flight-checkmark:after { content: ""; position: absolute; display: none; left: 8px; top: 4px; width: 5px; height: 10px; border: solid white; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+.flight-top-label input:checked ~ .flight-checkmark:after, .flight-sub-label input:checked ~ .flight-checkmark:after { display: block; }
+.flight-top-text strong { display: block; font-size: 1rem; color: var(--text, #111111); margin-bottom: 2px; }
+.flight-top-text small { display: block; font-size: 0.85rem; color: var(--muted, #8a9a8d); }
+.flight-sub-options { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line, #d0cfc7); }
+.flight-slider-wrap { margin-top: 16px; padding: 16px; background: white; border: 1px solid var(--line, #d0cfc7); border-radius: 12px; }
