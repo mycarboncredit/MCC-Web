@@ -181,14 +181,13 @@ const sections = [
       },
       {
         title: "Flights per year?",
-        help: "Use the counter for annual flight count.",
-        type: "range",
+        help: "Select your trip type(s) and enter the number of flights.",
+        type: "nestedFlights",
         key: "flights",
-        value: "",
-        min: 0,
-        max: 50,
-        step: 1,
-        suffix: " flights"
+        value: {
+          personal: { enabled: false, domestic: { enabled: false, value: 0 }, international: { enabled: false, value: 0 } },
+          official: { enabled: false, domestic: { enabled: false, value: 0 }, international: { enabled: false, value: 0 } }
+        }
       }
     ]
   },
@@ -837,10 +836,12 @@ function renderQuestion() {
   if (question.type === "rating") renderRating(question);
   if (question.type === "select") renderSelect(question);
   if (question.type === "text") renderText(question);
+  if (question.type === "nestedFlights") renderNestedFlights(question);
   saveQuizState();
 }
 
 function hasAnswer(question) {
+  if (question.type === "nestedFlights") return true; // Always true, default is 0 flights
   if (question.type === "text") return true;
   if (question.type === "multi" || question.type === "days") {
     if (question.value.includes("others")) {
@@ -1095,6 +1096,123 @@ function renderText(question) {
   nextButton.disabled = false;
 }
 
+function renderNestedFlights(question) {
+  const val = question.value;
+
+  const getTotalFromSliders = () => {
+    return (val.personal.domestic.value || 0) + (val.personal.international.value || 0) +
+           (val.official.domestic.value || 0) + (val.official.international.value || 0);
+  };
+
+  const displayTotal = getTotalFromSliders();
+
+  const buildCard = (category, title, desc) => `
+    <div class="nested-flight-card" id="card-${category}">
+      <label class="flight-top-label">
+        <input type="checkbox" class="cat-cb" data-category="${category}" ${val[category].enabled ? "checked" : ""}>
+        <span class="flight-checkmark"></span>
+        <div class="flight-top-text">
+          <strong>${title}</strong>
+          <small>${desc}</small>
+        </div>
+      </label>
+      <div class="flight-sub-options" id="${category}-options" style="display: ${val[category].enabled ? 'block' : 'none'};">
+        
+        <!-- Domestic -->
+        <label class="flight-sub-label">
+          <input type="checkbox" class="sub-cb" data-category="${category}" data-type="domestic" ${val[category].domestic.enabled ? "checked" : ""}>
+          <span class="flight-checkmark"></span>
+          <div class="flight-top-text">
+            <strong>Domestic</strong>
+            <small>Flights within your country.</small>
+          </div>
+        </label>
+        <div class="flight-slider-wrap" id="${category}-domestic-slider" style="display: ${val[category].domestic.enabled ? 'block' : 'none'};">
+           <div class="range-readout" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+             <span style="font-size: 0.95rem; font-weight: 500; color: #1f3d2c;">How many domestic flights per year?</span>
+             <strong class="slider-val-readout" style="font-size: 1.25rem; font-weight: 800; color: #1f3d2c;">${val[category].domestic.value} flights</strong>
+           </div>
+           <input type="range" class="flight-range" data-category="${category}" data-type="domestic" min="0" max="20" step="1" value="${val[category].domestic.value}" style="width: 100%; margin-bottom: 8px;" />
+           <div class="tick-row" style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #8a9a8d;">
+             <span>0 flights</span>
+             <span>20 flights</span>
+           </div>
+        </div>
+        
+        <!-- International -->
+        <label class="flight-sub-label" style="margin-top: 24px;">
+          <input type="checkbox" class="sub-cb" data-category="${category}" data-type="international" ${val[category].international.enabled ? "checked" : ""}>
+          <span class="flight-checkmark"></span>
+          <div class="flight-top-text">
+            <strong>International</strong>
+            <small>Flights to other countries.</small>
+          </div>
+        </label>
+        <div class="flight-slider-wrap" id="${category}-international-slider" style="display: ${val[category].international.enabled ? 'block' : 'none'};">
+           <div class="range-readout" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+             <span style="font-size: 0.95rem; font-weight: 500; color: #1f3d2c;">How many international flights per year?</span>
+             <strong class="slider-val-readout" style="font-size: 1.25rem; font-weight: 800; color: #1f3d2c;">${val[category].international.value} flights</strong>
+           </div>
+           <input type="range" class="flight-range" data-category="${category}" data-type="international" min="0" max="20" step="1" value="${val[category].international.value}" style="width: 100%; margin-bottom: 8px;" />
+           <div class="tick-row" style="display: flex; justify-content: space-between; font-size: 0.85rem; color: #8a9a8d;">
+             <span>0 flights</span>
+             <span>20 flights</span>
+           </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  answerArea.innerHTML = `
+    <div class="nested-flights-container">
+      <div class="flight-total-input" style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--primary);">Total Flights</label>
+        <input type="number" id="manual-total-flights" value="${displayTotal}" readonly style="width: 100%; padding: 12px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 1.1rem; background: var(--surface, #fcfbf7); cursor: not-allowed; color: var(--text);">
+      </div>
+      ${buildCard("personal", "Personal trip", "Flights taken for personal reasons.")}
+      ${buildCard("official", "Official trip", "Flights taken for work or business.")}
+    </div>
+  `;
+
+  // Attach Event Listeners
+  answerArea.querySelectorAll('.cat-cb').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const cat = e.target.dataset.category;
+      val[cat].enabled = e.target.checked;
+      document.getElementById(`${cat}-options`).style.display = val[cat].enabled ? 'block' : 'none';
+      saveQuizState();
+    });
+  });
+
+  answerArea.querySelectorAll('.sub-cb').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const cat = e.target.dataset.category;
+      const type = e.target.dataset.type;
+      val[cat][type].enabled = e.target.checked;
+      document.getElementById(`${cat}-${type}-slider`).style.display = val[cat][type].enabled ? 'block' : 'none';
+      saveQuizState();
+    });
+  });
+
+  const manualInput = document.getElementById('manual-total-flights');
+
+  answerArea.querySelectorAll('.flight-range').forEach(range => {
+    range.addEventListener('input', (e) => {
+      const cat = e.target.dataset.category;
+      const type = e.target.dataset.type;
+      val[cat][type].value = Number(e.target.value);
+      e.target.parentElement.querySelector('.slider-val-readout').textContent = `${val[cat][type].value} flights`;
+      
+      manualInput.value = getTotalFromSliders();
+      
+      saveQuizState();
+    });
+  });
+
+  nextButton.disabled = false; // Always valid
+}
+
 function goNext() {
   if (!hasAnswer(currentQuestion())) return;
   const finishedSectionId = currentQuestion().sectionId;
@@ -1186,7 +1304,9 @@ function calculateMobilityScore() {
 
   const longTravel = getValue("longTravel", "train");
   const ltWeight = greenPointConfig.weights.longTravel[longTravel] || 0.5;
-  const flights = Number(getValue("flights", 1));
+  const flightsObj = getValue("flights", { personal: { domestic: { value: 0 }, international: { value: 0 } }, official: { domestic: { value: 0 }, international: { value: 0 } } });
+  const flights = (flightsObj.personal?.domestic?.value || 0) + (flightsObj.personal?.international?.value || 0) + 
+                  (flightsObj.official?.domestic?.value || 0) + (flightsObj.official?.international?.value || 0);
   const flightImpact = Math.max(0, 1 - (flights / 50));
   score += (max * 0.1) * ltWeight;
   score += (max * 0.1) * flightImpact;
@@ -1544,7 +1664,15 @@ function calculate() {
   const home = (homeKwh * GRID_EMISSION_FACTOR + factors.cooking[getValue("cooking", "lpg")]) / householdPeople();
   const food = factors.diet[getValue("diet", "vegetarian")] + Number(getValue("nonVegMeals", 0)) * NONVEG_MEAL_FACTOR + Number(getValue("dairy", 0)) * DAIRY_FACTOR + Number(getValue("deliveries", 4)) * DELIVERY_FACTOR;
   const digital = Number(getValue("deviceCount", 3)) * DEVICE_EMISSION_MONTHLY + getValue("smartDevices", []).filter(v => v !== "none").length * SMART_DEVICE_EMISSION + Number(getValue("afterWorkUsage", 3)) * AFTERWORK_DEVICE_EMISSION;
-  const travel = Number(getValue("flights", 1)) * FLIGHT_EMISSION / 12 + factors.longTravel[getValue("longTravel", "train")];
+  const EMISSION_DOMESTIC_FLIGHT = 115; 
+  const EMISSION_INTERNATIONAL_FLIGHT = 550; 
+  const flightsObj = getValue("flights", { personal: { domestic: { value: 0 }, international: { value: 0 } }, official: { domestic: { value: 0 }, international: { value: 0 } } });
+  
+  let totalDomestic = (flightsObj.personal?.domestic?.value || 0) + (flightsObj.official?.domestic?.value || 0);
+  let totalInternational = (flightsObj.personal?.international?.value || 0) + (flightsObj.official?.international?.value || 0);
+  let travelFlightsEmission = (totalDomestic * EMISSION_DOMESTIC_FLIGHT + totalInternational * EMISSION_INTERNATIONAL_FLIGHT);
+  
+  const travel = travelFlightsEmission / 12 + factors.longTravel[getValue("longTravel", "train")];
   const total = commute + home + food + digital + travel;
   return {
     total,
@@ -1661,7 +1789,13 @@ function buildPayload() {
 
       Long_Distance_Travel: getValue("longTravel", ""),
 
-      Flights_Per_Year: getValue("flights", ""),
+      Flights_Per_Year: (() => {
+        const flightsObj = getValue("flights", null);
+        if (typeof flightsObj === 'object' && flightsObj !== null) {
+          return `Personal: ${flightsObj.personal?.domestic?.value || 0} Dom, ${flightsObj.personal?.international?.value || 0} Intl | Official: ${flightsObj.official?.domestic?.value || 0} Dom, ${flightsObj.official?.international?.value || 0} Intl`;
+        }
+        return flightsObj || "";
+      })(),
 
       AC_Hours: getValue("acHours", ""),
 
