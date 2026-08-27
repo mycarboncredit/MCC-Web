@@ -212,7 +212,7 @@ const sections = [
           { value: "heater", label: "Water Heater", icon: "♨", helper: "High heat load." }
         ]
       },
-      { title: "Device usage hours", help: "Think of this as your daily battery meter.", type: "range", key: "deviceUsage", value: "", min: 0, max: 100, step: 5, suffix: "%" },
+      { title: "Device usage hours per day", help: "How many hours a day do you use devices like laptops, phones, TVs?", type: "range", key: "deviceUsage", value: "", min: 0, max: 24, step: 1, suffix: "hrs" },
       {
         title: "Cooking energy source",
         help: "Pick the kitchen energy source you use most.",
@@ -258,7 +258,7 @@ const sections = [
         ]
       },
       { title: "Non-veg consumption frequency", help: "Select meals per week.", type: "range", key: "nonVegMeals", value: "", min: 0, max: 21, step: 1, suffix: " meals/week" },
-      { title: "Dairy consumption", help: "Fill the milk glass from empty to full. (Your daily personal consumption.)", type: "range", key: "dairy", value: "", min: 0, max: 100, step: 5, suffix: "%" },
+      { title: "Dairy consumption", help: "How many glasses of dairy (milk, yogurt, chai, etc.) do you have per day? (1 glass = 200ml)", type: "range", key: "dairy", value: "", min: 0, max: 5, step: 0.5, suffix: " glasses/day" },
       { title: "Food delivery frequency", help: "How many food packages arrive monthly?", type: "range", key: "deliveries", value: "", min: 0, max: 20, step: 1, suffix: " deliveries/month" },
       {
         title: "Reusable items",
@@ -267,10 +267,11 @@ const sections = [
         key: "reusables",
         value: [],
         options: [
-          { value: "bottle", label: "Carry bottle", icon: "❤", helper: "Avoid single-use bottles." },
-          { value: "bag", label: "Cloth bag", icon: "❤", helper: "Avoid plastic bags." },
-          { value: "lunchbox", label: "Lunch box", icon: "❤", helper: "Reduce packaging." },
-          { value: "cup", label: "Reusable cup", icon: "❤", helper: "Avoid disposable cups." }
+          { value: "bottle", label: "Carry bottle", icon: "💧", helper: "Avoid single-use bottles." },
+          { value: "bag", label: "Cloth bag", icon: "🛍️", helper: "Avoid plastic bags." },
+          { value: "lunchbox", label: "Lunch box", icon: "🍱", helper: "Reduce packaging." },
+          { value: "cup", label: "Reusable cup", icon: "☕", helper: "Avoid disposable cups." },
+          { value: "none", label: "None regularly", icon: "🚫", helper: "I don't usually use reusable items." }
         ]
       }
     ]
@@ -295,7 +296,7 @@ const sections = [
           { value: "none", label: "Not applicable", icon: "✖", helper: "No smart devices." }
         ]
       },
-      { title: "Device usage after work", help: "Drag from work end toward sleep.", type: "range", key: "afterWorkUsage", value: "", min: 0, max: 8, step: 1, suffix: " hrs" }
+      { title: "Gadget usage after work", help: "Drag from work end toward sleep.", type: "range", key: "afterWorkUsage", value: "", min: 0, max: 8, step: 1, suffix: " hrs" }
     ]
   },
   {
@@ -314,7 +315,9 @@ const sections = [
           { value: "time", label: "Time", icon: "⏳", helper: "Hard to fit into routine." },
           { value: "cost", label: "Cost", icon: "💰", helper: "Feels expensive." },
           { value: "awareness", label: "Awareness", icon: "📉", helper: "Need clearer information." },
-          { value: "access", label: "Accessibility", icon: "🚫", helper: "Options are not easy to access." }
+          { value: "access", label: "Accessibility", icon: "🚫", helper: "Options are not easy to access." },
+          { value: "none", label: "None of these", icon: "🌱", helper: "I don't currently face these barriers." },
+          { value: "notInterested", label: "Not currently interested", icon: "🙅", helper: "Sustainability is not a current priority for me." }
         ]
       },
       {
@@ -370,7 +373,8 @@ const sections = [
           { value: "leaderboard", label: "Leaderboard", icon: "🏆", helper: "Compare progress." },
           { value: "badges", label: "Badges", icon: "🎖", helper: "Unlock achievements." },
           { value: "analytics", label: "Analytics", icon: "📊", helper: "Track data deeply." },
-          { value: "impact", label: "Impact Tracker", icon: "🌱", helper: "See real-world outcomes." }
+          { value: "impact", label: "Impact Tracker", icon: "🌱", helper: "See real-world outcomes." },
+          { value: "none", label: "Not interested", icon: "🚫", helper: "No gamification for me." }
         ]
       },
       {
@@ -449,9 +453,9 @@ const GRID_EMISSION_FACTOR = 0.82;       // kg CO₂/kWh — CEA v20.0 (Dec 2024
 const BASE_HOME_KWH = 50;                // Baseline monthly kWh (lighting, misc) — BEE India
 const AC_KWH_PER_HOUR = 1.5;             // AC consumption per hour — BEE 5-star rating
 const APPLIANCE_KWH_MONTHLY = 7;         // Per appliance monthly kWh — BEE avg
-const DEVICE_USAGE_FACTOR = 0.4;         // Device usage intensity scaler
+const DAIRY_FACTOR = 3.2;                // kg CO₂ per cup/day per month — FAO (~0.1 kg CO₂/100ml × 250ml/cup × 30 days)
+const DEVICE_USAGE_FACTOR = 0.1;         // Device usage intensity scaler (kWh per hr/day, scaled × 30 days)
 const NONVEG_MEAL_FACTOR = 6.0;          // kg CO₂ per additional non-veg meal/week — CGIAR
-const DAIRY_FACTOR = 0.25;               // kg CO₂ per % dairy consumption — FAO
 const DELIVERY_FACTOR = 2.5;             // kg CO₂ per food delivery — packaging + transport
 const DEVICE_EMISSION_MONTHLY = 6;       // kg CO₂ per device per month — CEA grid × avg kWh
 const SMART_DEVICE_EMISSION = 4;         // kg CO₂ per smart device per month
@@ -773,7 +777,7 @@ function sectionFor(id) {
 }
 
 function isQuestionVisible(question) {
-  if (question.key === "nonVegMeals") return getValue("diet", "") === "nonveg";
+  if (question.key === "nonVegMeals") return getValue("diet", "") === "nonveg" || getValue("diet", "") === "eggetarian";
   if (question.key === "dairy") return getValue("diet", "") !== "vegan";
   if (question.key === "metroAccess") return getValue("transport", []).includes("metro");
   return true;
@@ -824,7 +828,9 @@ function renderQuestion() {
   progressBar.style.width = `${((visibleIndex + 1) / visible.length) * 100}%`;
   sectionName.textContent = question.sectionName;
   title.textContent = question.title;
-  help.textContent = question.help;
+  help.textContent = (question.type === "multi" && !question.help.includes("Select all"))
+    ? question.help + " · Select all that apply."
+    : question.help;
   const prevIndex = findPreviousVisibleIndex(currentIndex);
   backButton.style.visibility = prevIndex === -1 ? "hidden" : "visible";
   nextButton.textContent = findNextVisibleIndex(currentIndex) === -1 ? "Finish quiz →" : "Next →";
@@ -936,7 +942,7 @@ function renderMulti(question) {
       if (selected.has(val)) {
         selected.delete(val);
       } else {
-        if (val === "none" || val === "others") {
+        if (val === "none" || val === "others" || val === "notInterested") {
           if (val === "none" && question.key === "travelDays") {
             const distanceQ = questions.find(q => q.key === "distance");
             if (distanceQ && distanceQ.value !== "" && Number(distanceQ.value) !== 0) {
@@ -949,6 +955,7 @@ function renderMulti(question) {
         } else {
           selected.delete("none");
           selected.delete("others");
+          selected.delete("notInterested");
           selected.add(val);
         }
       }
@@ -1277,7 +1284,7 @@ const greenPointConfig = {
     longTravel: { train: 1.0, bus: 0.7, car: 0.4, flight: 0.1, none: 1.0 },
     cooking: { induction: 1.0, png: 0.8, mixed: 0.5, lpg: 0.3 },
     diet: { vegan: 1.0, vegetarian: 0.8, eggetarian: 0.6, nonveg: 0.2 },
-    reusables: { bottle: 0.25, bag: 0.25, lunchbox: 0.25, cup: 0.25 },
+    reusables: { bottle: 0.25, bag: 0.25, lunchbox: 0.25, cup: 0.25, none: 0 },
     homeTech: { solar: 0.3, solarHeater: 0.3, rainwater: 0.2, waste: 0.2 },
     smartDevices: { watch: -0.25, earbuds: -0.25, smartHome: -0.25, glasses: -0.25, none: 0 }
   }
@@ -1321,8 +1328,8 @@ function calculateHomeEnergyScore() {
   const acHours = Number(getValue("acHours", 4));
   score += (max * 0.3) * Math.max(0, 1 - (acHours / 24));
 
-  const deviceUsage = Number(getValue("deviceUsage", 60));
-  score += (max * 0.2) * Math.max(0, 1 - (deviceUsage / 100));
+  const deviceUsage = Number(getValue("deviceUsage", 6));
+  score += (max * 0.2) * Math.max(0, 1 - (deviceUsage / 24));
 
   const cooking = getValue("cooking", "lpg");
   const cWeight = greenPointConfig.weights.cooking[cooking] || 0.3;
@@ -1347,9 +1354,9 @@ function calculateFoodScore() {
   score += (max * 0.4) * dWeight;
 
   const nonVegMeals = Number(getValue("nonVegMeals", 2));
-  const dairy = Number(getValue("dairy", 50));
+  const dairy = Number(getValue("dairy", 2));
   const dietImpact = Math.max(0, 1 - (nonVegMeals / 21));
-  const dairyImpact = Math.max(0, 1 - (dairy / 100));
+  const dairyImpact = Math.max(0, 1 - (dairy / 5));
   score += (max * 0.15) * dietImpact;
   score += (max * 0.15) * dairyImpact;
 
@@ -1358,7 +1365,7 @@ function calculateFoodScore() {
 
   const reusables = getValue("reusables", []);
   let reuseScore = 0;
-  reusables.forEach(item => {
+  reusables.filter(item => item !== "none").forEach(item => {
     reuseScore += greenPointConfig.weights.reusables[item] || 0;
   });
   score += (max * 0.2) * Math.min(1, reuseScore);
@@ -1475,10 +1482,10 @@ function calculateKnowledgeScore(sectionId) {
     return Math.min(awarenessConfig.maxPoints.home, homeTech.length * 2.5); // All 4 techs = full 10 pts
   }
   if (sectionId === "food") {
-    const reusables = getValue("reusables", []);
+    const reusables = getValue("reusables", []).filter(item => item !== "none");
     const diet = getValue("diet", "vegetarian");
     if (diet === "vegan" || diet === "vegetarian") score += 5;
-    score += Math.min(5, reusables.length * 1.25); // All 4 reusables = full 5 pts
+    score += Math.min(5, reusables.length * 1.25); // All 4 reusables = full 5 pts (none excluded)
     return Math.min(awarenessConfig.maxPoints.food, score);
   }
   return 0;
@@ -1660,7 +1667,7 @@ function calculate() {
   const commute = distance * 2 * travelDays * 4.33 * (factors.transport[commuteMode] || 0.12) * (factors.fuel?.[fuel] || 1);
   const acHours = Number(getValue("acHours", 4));
   const appliances = getValue("appliances", []);
-  const homeKwh = BASE_HOME_KWH + acHours * AC_KWH_PER_HOUR * 30 + appliances.length * APPLIANCE_KWH_MONTHLY + Number(getValue("deviceUsage", 60)) * DEVICE_USAGE_FACTOR;
+  const homeKwh = BASE_HOME_KWH + acHours * AC_KWH_PER_HOUR * 30 + appliances.length * APPLIANCE_KWH_MONTHLY + Number(getValue("deviceUsage", 6)) * 30 * DEVICE_USAGE_FACTOR;
   const home = (homeKwh * GRID_EMISSION_FACTOR + factors.cooking[getValue("cooking", "lpg")]) / householdPeople();
   const food = factors.diet[getValue("diet", "vegetarian")] + Number(getValue("nonVegMeals", 0)) * NONVEG_MEAL_FACTOR + Number(getValue("dairy", 0)) * DAIRY_FACTOR + Number(getValue("deliveries", 4)) * DELIVERY_FACTOR;
   const digital = Number(getValue("deviceCount", 3)) * DEVICE_EMISSION_MONTHLY + getValue("smartDevices", []).filter(v => v !== "none").length * SMART_DEVICE_EMISSION + Number(getValue("afterWorkUsage", 3)) * AFTERWORK_DEVICE_EMISSION;
